@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { supabase, inr, fdate, rpc, type Row } from '../supabase'
+import { supabase, inr, fdate, rpc, pubUrl, type Row } from '../supabase'
 import { useQuery, Err, Status, Modal, Field } from '../ui/kit'
 
 const nm = (o?: Row) => o?.trade_name || o?.legal_name || '—'
@@ -139,4 +139,44 @@ export function ExtendReservation({ r, onClose, onDone }: { r: Row; onClose: () 
   return <NoteDialog title="Give the buyer more time to pay" sub={`${nm(r.buyer)} · ${r.pool?.pool_no} · currently due ${fdate(r.reserved_until)}`} label="Reason" confirm="Extend" onClose={onClose}
     extra={<Field label="Extend by"><select className="form-input" value={mins} onChange={e => setMins(e.target.value)}><option value="360">6 hours</option><option value="1440">1 day</option><option value="2880">2 days</option><option value="10080">7 days</option></select></Field>}
     onSubmit={async note => { const e = await rpc('admin_extend_reservation', { p_commitment: r.id, p_minutes: Number(mins), p_reason: note }); if (!e) onDone(); return e }} />
+}
+
+/* ───────── purchase order details ───────── */
+const dtl = (s?: string | null) => (s ? new Date(s).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—')
+export function PODetail({ id, role, onClose }: { id: string; role: 'admin' | 'supplier'; onClose: () => void }) {
+  const admin = role === 'admin'
+  const q = useQuery(() => supabase.from('purchase_orders').select('*, pool:pool_id(id, title, pool_no, spec_snapshot, deadline_at), mfr:manufacturer_org_id(legal_name, trade_name), purchase_order_items(size, color, qty, unit_cost_paise)').eq('id', id), [id])
+  const po = (q.rows as Row[])[0]
+  const pics = useQuery(() => po?.pool_id ? supabase.from('pool_images').select('position, object_key').eq('pool_id', po.pool_id).order('position') : Promise.resolve({ data: [], error: null }), [po?.pool_id])
+  const ords = useQuery(() => admin ? supabase.from('orders').select('id, order_no, status, total_paise, buyer:buyer_org_id(legal_name, trade_name), order_items(qty)').eq('purchase_order_id', id) : Promise.resolve({ data: [], error: null }), [id, admin])
+  const tl = useQuery(() => admin ? supabase.from('state_transitions').select('*').eq('entity_type', 'purchase_order').eq('entity_id', id).order('created_at') : Promise.resolve({ data: [], error: null }), [id, admin])
+  const items = (po?.purchase_order_items ?? []) as Row[]
+  const colors = [...new Set(items.map(i => String(i.color)))]; const sizes = [...new Set(items.map(i => String(i.size)))]
+  const cell = (s: string, c: string) => items.filter(i => i.size === s && i.color === c).reduce((t, i) => t + i.qty, 0)
+  const spec = Object.entries((po?.spec_snapshot && Object.keys(po.spec_snapshot).length ? po.spec_snapshot : po?.pool?.spec_snapshot) ?? {}).filter(([, v]) => typeof v !== 'object')
+  const cover = (pics.rows as Row[])[0]
+  return (
+    <Modal title={po ? po.po_no : 'Purchase order'} sub={po ? po.pool?.title : ''} onClose={onClose} footer={<button className="btn btn-outline" onClick={onClose}>Close</button>}>
+      <Err m={q.err} />
+      {q.loading || !po ? <div className="td-muted">Loading…</div> : <>
+        <div className="po-hero"><div className="thumb">{cover ? <img src={pubUrl(cover.object_key)} alt="" /> : '📦'}</div>
+          <div style={{ flex: 1 }}><div className="row"><Status s={po.status} /><span className="td-muted">{po.pool?.pool_no}</span></div>
+            <div className="info-row"><span className="info-key">{admin ? 'Supplier' : 'Placed'}</span><span className="info-val">{admin ? nm(po.mfr) : dtl(po.created_at)}</span></div></div></div>
+        <div className="info-row"><span className="info-key">Total quantity</span><span className="info-val">{po.total_qty} pcs</span></div>
+        <div className="info-row"><span className="info-key">Unit cost</span><span className="info-val">{inr(po.unit_cost_paise)}</span></div>
+        <div className="info-row"><span className="info-key">PO total</span><span className="info-val"><b>{inr(po.total_cost_paise)}</b></span></div>
+        <div className="info-row"><span className="info-key">Expected ready</span><span className="info-val">{po.expected_ready_date ? fdate(po.expected_ready_date) : 'Not set'}</span></div>
+        {admin && <div className="info-row"><span className="info-key">Placed</span><span className="info-val">{dtl(po.created_at)}</span></div>}
+        <div className="editor-h">Size &amp; colour breakdown</div>
+        <div style={{ overflowX: 'auto' }}><table className="po-table"><thead><tr><th>Size</th>{colors.map(c => <th key={c}>{c}</th>)}<th>Total</th></tr></thead><tbody>
+          {sizes.map(s => <tr key={s}><td className="td-strong">{s}</td>{colors.map(c => <td key={c}>{cell(s, c) || '—'}</td>)}<td><b>{items.filter(i => i.size === s).reduce((t, i) => t + i.qty, 0)}</b></td></tr>)}
+          <tr><td className="td-strong">Total</td>{colors.map(c => <td key={c}><b>{items.filter(i => i.color === c).reduce((t, i) => t + i.qty, 0)}</b></td>)}<td><b>{po.total_qty}</b></td></tr></tbody></table></div>
+        {spec.length > 0 && <><div className="editor-h">Specification</div>{spec.map(([k, v]) => <div className="info-row" key={k}><span className="info-key">{k.replace(/_/g, ' ')}</span><span className="info-val">{String(v)}</span></div>)}</>}
+        {admin && (ords.rows as Row[]).length > 0 && <><div className="editor-h">Buyer orders on this PO ({ords.rows.length})</div>
+          <table className="po-table"><thead><tr><th>Order</th><th>Buyer</th><th>Qty</th><th>Status</th></tr></thead><tbody>
+            {(ords.rows as Row[]).map(o => <tr key={o.id}><td className="td-strong">{o.order_no}</td><td>{nm(o.buyer)}</td><td>{(o.order_items ?? []).reduce((t: number, i: Row) => t + i.qty, 0)}</td><td><Status s={o.status} /></td></tr>)}</tbody></table></>}
+        {admin && (tl.rows as Row[]).length > 0 && <><div className="editor-h">History</div><ul className="timeline">
+          {(tl.rows as Row[]).map(t => <li key={t.id}><b>{(t.from_status ?? 'new').replace(/_/g, ' ')} → {String(t.to_status).replace(/_/g, ' ')}</b> <span className="td-muted">· {dtl(t.created_at)}</span>{t.reason && <div className="td-muted">{t.reason}</div>}</li>)}</ul></>}
+      </>}
+    </Modal>)
 }

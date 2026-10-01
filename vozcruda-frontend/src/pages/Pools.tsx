@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase, inr, fdate, daysLeft, rpc, type Row } from '../supabase'
+import { supabase, inr, fdate, daysLeft, rpc, pubUrl, type Row } from '../supabase'
 import { useAuth } from '../auth'
 import { useQuery, Err, Status, Chip, Progress, pct, Empty, Loading, Modal, Field, Section, Card } from '../ui/kit'
 
@@ -24,16 +24,18 @@ export function usePools(all: boolean) {
   const pools = useQuery(() => all ? supabase.from('moq_pools').select('*').order('created_at', { ascending: false })
     : supabase.from('open_pools').select('*').order('deadline_at'), [all])
   const tiers = useQuery(() => supabase.from(all ? 'pool_price_tiers' : 'open_pool_price_tiers').select('*'), [all])
+  const pics = useQuery(() => supabase.from('pool_images').select('pool_id, position, object_key'), [all])
   const byPool = (id: string) => tiers.rows.filter((t: Row) => t.pool_id === id)
-  return { pools: (pools.rows as Row[]).map(normPool), byPool, err: pools.err, loading: pools.loading, reload: pools.reload }
+  const cover = (id: string): string | undefined => { const r = (pics.rows as Row[]).filter(x => x.pool_id === id).sort((a, b) => a.position - b.position)[0]; return r ? pubUrl(r.object_key) : undefined }
+  return { pools: (pools.rows as Row[]).map(normPool), byPool, cover, err: pools.err, loading: pools.loading, reload: pools.reload }
 }
 
-export function PoolCard({ p, tiers, onOpen }: { p: Pool; tiers: Row[]; onOpen: (id: string) => void }) {
+export function PoolCard({ p, tiers, img, onOpen }: { p: Pool; tiers: Row[]; img?: string; onOpen: (id: string) => void }) {
   const price = priceAt(tiers, p.paid)
   const closed = !['open', 'moq_reached'].includes(p.status)
   return (
     <div className="product-card" onClick={() => onOpen(p.id)}>
-      <div className="product-image"><span className="product-image-emoji">📦</span>
+      <div className="product-image">{img ? <img src={img} alt={p.title} loading="lazy" /> : <span className="product-image-emoji">📦</span>}
         <span className={'product-status-badge ' + (closed ? 'badge-production' : p.paid >= p.moq ? 'badge-active' : 'badge-moq')}>
           {p.paid >= p.moq && !closed ? 'MOQ reached' : p.status.replace(/_/g, ' ')}</span></div>
       <div className="product-body">
@@ -58,7 +60,7 @@ export function PoolCard({ p, tiers, onOpen }: { p: Pool; tiers: Row[]; onOpen: 
 }
 
 export function PoolsBrowse({ admin, onOpen }: { admin: boolean; onOpen: (id: string) => void }) {
-  const { pools, byPool, err, loading } = usePools(admin)
+  const { pools, byPool, cover, err, loading } = usePools(admin)
   const [q, setQ] = useState(''); const [st, setSt] = useState('')
   const list = pools.filter(p => p.title.toLowerCase().includes(q.toLowerCase()) && (!st || p.status === st))
   return (<>
@@ -70,7 +72,7 @@ export function PoolsBrowse({ admin, onOpen }: { admin: boolean; onOpen: (id: st
     </div>
     <Err m={err} />
     {loading ? <Loading /> : !list.length ? <Empty icon="📦" title="No batches yet" desc="Open batches will appear here." /> :
-      <div className="products-grid">{list.map(p => <PoolCard key={p.id} p={p} tiers={byPool(p.id)} onOpen={onOpen} />)}</div>}
+      <div className="products-grid">{list.map(p => <PoolCard key={p.id} p={p} tiers={byPool(p.id)} img={cover(p.id)} onOpen={onOpen} />)}</div>}
   </>)
 }
 
@@ -80,6 +82,8 @@ export function PoolDetail({ id, onBack, goPage }: { id: string; onBack: () => v
   const pr = useQuery(() => admin ? supabase.from('moq_pools').select('*').eq('id', id) : supabase.from('open_pools').select('*').eq('pool_id', id), [id, admin])
   const tr = useQuery(() => supabase.from(admin ? 'pool_price_tiers' : 'open_pool_price_tiers').select('*').eq('pool_id', id).order('min_total_qty'), [id, admin])
   const cm = useQuery(() => supabase.from('pool_commitments').select('*, buyer:buyer_org_id(legal_name, trade_name), pool_commitment_items(size, color, qty)').eq('pool_id', id).order('created_at', { ascending: false }), [id])
+  const pics = useQuery(() => supabase.from('pool_images').select('position, object_key, alt_text').eq('pool_id', id).order('position'), [id])
+  const [shot, setShot] = useState(0)
   const po = useQuery(() => admin ? supabase.from('purchase_orders').select('id, po_no, status').eq('pool_id', id) : Promise.resolve({ data: [], error: null }), [id, admin])
   if (pr.loading) return <Loading />
   const raw = (pr.rows as Row[])[0]
@@ -123,6 +127,8 @@ export function PoolDetail({ id, onBack, goPage }: { id: string; onBack: () => v
           {tiers.map(t => <tr key={t.min_total_qty}><td className={t.min_total_qty === p.moq ? 'td-strong' : ''}>{t.min_total_qty}+ {t.min_total_qty === p.moq && <Chip c="orange">MOQ</Chip>}</td><td className="td-strong">{inr(t.unit_price_paise)}</td></tr>)}</tbody></table>}</Card>
       </div>
       <div className="col-side">
+        {(pics.rows as Row[]).length > 0 && <div className="info-card gallery"><div className="gallery-main"><img src={pubUrl((pics.rows as Row[])[Math.min(shot, pics.rows.length - 1)].object_key)} alt={p.title} /></div>
+          {pics.rows.length > 1 && <div className="gallery-thumbs">{(pics.rows as Row[]).map((r, i) => <button key={i} className={i === shot ? 'on' : ''} onClick={() => setShot(i)} aria-label={'Photo ' + (i + 1)}><img src={pubUrl(r.object_key)} alt="" /></button>)}</div>}</div>}
         <div className="info-card"><div className="info-card-header">Batch details</div><div className="info-card-body">
           <div className="info-row"><span className="info-key">Closes</span><span className="info-val">{fdate(p.deadline)}</span></div>
           <div className="info-row"><span className="info-key">Per-buyer qty</span><span className="info-val">{p.min}–{p.max}</span></div>

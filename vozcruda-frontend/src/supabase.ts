@@ -11,3 +11,6 @@ export async function rpc(name: string, args: Row = {}): Promise<string | null> 
   const { error } = await supabase.rpc(name, args)
   return error ? error.message : null
 }
+
+/** Public URL of a photo in the public storage bucket. */
+export const pubUrl = (key: string) => supabase.storage.from('vc-public').getPublicUrl(key).data.publicUrl

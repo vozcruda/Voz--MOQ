@@ -53,3 +53,6 @@ Run `backend/009_ops_settings_disputes_logs.sql` in the Supabase SQL editor (aft
 - **Manual reservation**: `admin_create_reservation` (optionally already paid), `admin_add_address`, `admin_extend_reservation`.
 - **Manual PO**: `admin_place_manual_po` — also works before MOQ (reason required); the normal MOQ flow shares the same code (`_place_po`).
 - **Activity log**: more tables audited, exact timestamps, `admin_activity_feed` (search / filter / paging) → Admin → Activity Log.
+
+## 010 — batch photos + PO details
+Run `backend/010_batch_images_po_details.sql`. Adds `product_id` to `open_pools` (buyers now see photos and size/colour options on batches) and a `pool_images` view. Purchase Orders → Details shows the full PO (photo, cost, size×colour matrix, spec, buyer orders, history).

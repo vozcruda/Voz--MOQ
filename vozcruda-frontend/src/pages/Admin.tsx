@@ -4,7 +4,7 @@ import { useQuery, Err, Status, Chip, Stats, Stat, Progress, pct, Section, Card,
 import { usePools, levelLabel } from './Pools'
 import { useAuth } from '../auth'
 import { CreateAccount } from './AdminTeam'
-import { NoteDialog, ManualReservation, ManualPO, ExtendReservation } from './Ops'
+import { NoteDialog, ManualReservation, ManualPO, ExtendReservation, PODetail } from './Ops'
 
 export function AdminDashboard({ open, go }: { open: (id: string) => void; go: (p: string) => void }) {
   const { pools } = usePools(true)
@@ -91,11 +91,9 @@ export function PurchaseOrders({ role }: { role: 'admin' | 'supplier' }) {
         <td>{p.total_qty}</td><td>{inr(p.total_cost_paise)}</td><td><Status s={p.status} /></td><td className="td-muted">{fdate(p.created_at)}</td>
         <td className="row">{(role === 'admin' ? (can('orders') ? PO_NEXT[p.status] ?? [] : []) : supplierNext(p.status)).filter(t => !(role === 'admin' && t === 'cancelled')).map(t => <button key={t} className="btn btn-outline btn-sm" onClick={() => mv(p.id, t)}>{t.replace(/_/g, ' ')}</button>)}
           {role === 'admin' && can('orders') && !['cancelled', 'closed', 'received'].includes(p.status) && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => setCancel(p)}>Cancel</button>}
-          <button className="btn btn-ghost btn-sm" onClick={() => setOpen(open === p.id ? null : p.id)}>{open === p.id ? 'Hide' : 'View'}</button></td></tr>
-        {open === p.id && <tr key={p.id + 'd'}><td colSpan={8}><table className="po-table"><thead><tr><th>Size</th><th>Color</th><th>Qty</th></tr></thead><tbody>
-          {(p.purchase_order_items ?? []).map((i: Row, k: number) => <tr key={k}><td>{i.size}</td><td>{i.color}</td><td>{i.qty}</td></tr>)}</tbody></table>
-          <div className="po-total-row total"><span>Unit cost {inr(p.unit_cost_paise)}</span><span>Total {inr(p.total_cost_paise)}</span></div>
-          {p.expected_ready_date && <div className="td-muted">Expected ready: {fdate(p.expected_ready_date)}</div>}</td></tr>}</Fragment>)}</tbody></table>}</Card>
+          <button className="btn btn-outline btn-sm" onClick={() => setOpen(p.id)}>Details</button></td></tr>
+</Fragment>)}</tbody></table>}</Card>
+    {open && <PODetail id={open} role={role} onClose={() => setOpen(null)} />}
     {manual && <ManualPO onClose={() => setManual(false)} onDone={() => { setManual(false); q.reload() }} />}
     {cancel && <NoteDialog title={`Cancel ${cancel.po_no}`} sub="The supplier is notified. Buyer orders stay in place." label="Reason" confirm="Cancel PO" danger onClose={() => setCancel(null)}
       onSubmit={async why => { const e = await rpc('admin_cancel_po', { p_po: cancel.id, p_reason: why }); if (!e) q.reload(); return e }} />}
