@@ -13,7 +13,7 @@ import { ActivityLog } from './pages/ActivityLog'
 import { AdminTeam } from './pages/AdminTeam'
 import { Notifications } from './pages/Notifications'
 import { supabase } from './supabase'
-import { useQuery } from './ui/kit'
+import { useQuery, Modal } from './ui/kit'
 
 type Item = { id: string; icon: string; label: string }
 const NAV: Record<Exclude<Role, 'none'>, { home: string; label: string; groups: [string, Item[]][] }> = {
@@ -45,6 +45,7 @@ function Shell() {
   const admin = r === 'admin'
   const [creating, setCreating] = useState(false)
   const [menu, setMenu] = useState(false)
+  const [confirmOut, setConfirmOut] = useState(false); const [outBusy, setOutBusy] = useState(false)
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(false) }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k) }, [])
 
   let view = null
@@ -79,13 +80,15 @@ function Shell() {
         </nav>
         <div className="sidebar-user"><div className="user-avatar">{initials || 'VC'}</div>
           <div className="user-info"><div className="user-name">{name}</div><div className="user-email">{email}</div></div>
-          <button title="Sign out" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', fontSize: 14 }} onClick={signOut}>⎋</button></div>
+        </div>
+        <div className="sidebar-logout"><button className="logout-btn" onClick={() => setConfirmOut(true)}><span aria-hidden>⎋</span> Log out</button></div>
       </div>
       <div className="main">
         <div className="topbar"><button className="menu-btn" aria-label="Open menu" onClick={() => setMenu(true)}>☰</button><div className="topbar-title">{TITLES[page] ?? page}</div>
           {admin && can('pools') && <div className="topbar-actions"><button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>+ Create Batch</button></div>}</div>
         <div className="page-content"><div className="page-inner">{view}</div></div>
       </div>
+      {confirmOut && <Modal title="Log out?" sub={email} onClose={() => setConfirmOut(false)} footer={<><button className="btn btn-outline" onClick={() => setConfirmOut(false)}>Stay signed in</button><button className="btn btn-primary" disabled={outBusy} onClick={async () => { setOutBusy(true); await signOut() }}>{outBusy ? 'Logging out…' : 'Log out'}</button></>}>You’ll need to sign in again to use MoqLess on this device.</Modal>}
       {creating && <CreateBatch onClose={() => setCreating(false)} onDone={id => { setCreating(false); openPool(id) }} />}
     </div>
   )
