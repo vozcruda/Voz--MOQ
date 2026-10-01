@@ -25,11 +25,13 @@ function Wrap({ quote, children, features }: { quote: ReactNode; children: React
 export function AuthScreen() {
   const [mode, setMode] = useState<'in' | 'up'>('in')
   const [f, setF] = useState({ email: '', pw: '', pw2: '', name: '', phone: '', business: '', gstin: '', type: 'buyer' })
-  const [err, setErr] = useState(''); const [info, setInfo] = useState(''); const [busy, setBusy] = useState(false); const [needConfirm, setNeedConfirm] = useState(false)
+  const [err, setErr] = useState(''); const [info, setInfo] = useState(''); const [busy, setBusy] = useState(false); const [needConfirm, setNeedConfirm] = useState(false); const [sent, setSent] = useState('')
   const up = (k: string, v: string) => setF({ ...f, [k]: v })
   const resend = async () => {
     setErr(''); const { error } = await supabase.auth.resend({ type: 'signup', email: f.email, options: { emailRedirectTo: window.location.origin } })
     if (error) setErr(error.message); else { setInfo('Confirmation email sent again. Open the newest one.'); setNeedConfirm(false) }
+  }
+  const backToSignIn = () => { setSent(''); setInfo(''); setErr(''); setMode('in'); setF({ ...f, pw: '', pw2: '' })
   }
   const submit = async () => {
     setErr(''); setInfo(''); setBusy(true)
@@ -42,11 +44,22 @@ export function AuthScreen() {
       save({ type: f.type, business: f.business, gstin: f.gstin })
       const { data, error } = await supabase.auth.signUp({ email: f.email, password: f.pw, options: { data: { full_name: f.name }, emailRedirectTo: window.location.origin } })
       if (error) setErr(error.message)
-      else if (!data.session) setInfo('Account created. Check your email to confirm, then sign in.')
+      else if (!data.session) { setSent(f.email); setInfo(''); setF({ email: f.email, pw: '', pw2: '', name: '', phone: '', business: '', gstin: '', type: 'buyer' }) }
       if (data.session && f.phone) await supabase.from('profiles').update({ phone: f.phone }).eq('id', data.session.user.id)
     }
     setBusy(false)
   }
+  if (sent) return (
+    <Wrap quote={<>"Almost there."</>}>
+      <div className="login-card">
+        <div className="login-title">Check your email</div>
+        <div className="login-sub">We sent a confirmation link to <b>{sent}</b>. Open it to activate your account, then sign in and finish setting up your business.</div>
+        <Err m={err} />{info && <div className="ok">{info}</div>}
+        <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 11, margin: '8px 0 12px' }} onClick={backToSignIn}>Go to sign in</button>
+        <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>Didn't get it? <button className="link" onClick={() => { setF({ ...f, email: sent }); supabase.auth.resend({ type: 'signup', email: sent, options: { emailRedirectTo: window.location.origin } }).then(({ error }) => error ? setErr(error.message) : setInfo('Confirmation email sent again.')) }}>Resend</button></div>
+      </div>
+    </Wrap>
+  )
   return (
     <Wrap features={mode === 'in'} quote={mode === 'in' ? <>"Small orders,<br />collective power."</> : <>"Join the collective.<br />Buy better."</>}>
       <div className="login-card" style={{ width: mode === 'up' ? 460 : 420 }}>
@@ -81,7 +94,8 @@ export function Onboarding() {
     const need = ['terms', 'privacy', ...(type === 'manufacturer' ? ['manufacturer_terms'] : [])]
     for (const t of need) { const ce = await rpc('record_consent', { p_type: t, p_version: '2026-09', p_accepted: true }); if (ce) { setBusy(false); return setErr(ce) } }
     const e = await rpc('create_organization', { p_type: type, p_legal_name: name, p_gstin: gstin || null })
-    setBusy(false); if (e) return setErr(e)
+    setBusy(false)
+    if (e) { if (/already/i.test(e)) { await refresh(); return } return setErr(e) }
     try { localStorage.removeItem(PENDING) } catch { /* ignore */ }
     await refresh()
   }
