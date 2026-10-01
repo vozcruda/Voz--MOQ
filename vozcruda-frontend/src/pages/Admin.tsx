@@ -4,6 +4,7 @@ import { useQuery, Err, Status, Chip, Stats, Stat, Progress, pct, Section, Card,
 import { usePools, levelLabel } from './Pools'
 import { useAuth } from '../auth'
 import { CreateAccount } from './AdminTeam'
+import { NoteDialog, ManualReservation, ManualPO, ExtendReservation } from './Ops'
 
 export function AdminDashboard({ open, go }: { open: (id: string) => void; go: (p: string) => void }) {
   const { pools } = usePools(true)
@@ -11,7 +12,7 @@ export function AdminDashboard({ open, go }: { open: (id: string) => void; go: (
   const buyers = useQuery(() => supabase.from('organizations').select('id').eq('type', 'buyer'), [])
   const res = useQuery(() => supabase.from('pool_commitments').select('amount_due_paise').eq('status', 'reserved'), [])
   const disp = useQuery(() => supabase.from('disputes').select('id').eq('status', 'open'), [])
-  const log = useQuery(() => supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(6), [])
+  const log = useQuery(() => supabase.rpc('admin_activity_feed', { p_limit: 8 }), [])
   const active = pools.filter(p => p.status === 'open' || p.status === 'moq_reached')
   const near = [...active].sort((a, b) => pct(b.paid, b.moq) - pct(a.paid, a.moq)).slice(0, 5)
   const due = (res.rows as Row[]).reduce((s, r) => s + Number(r.amount_due_paise), 0)
@@ -34,10 +35,10 @@ export function AdminDashboard({ open, go }: { open: (id: string) => void; go: (
             <td><b>{Math.max(0, p.moq - p.paid)} pcs</b></td><td><Chip c={daysLeft(p.deadline) <= 3 ? 'orange' : 'gray'}>{daysLeft(p.deadline)} days</Chip></td>
             <td><button className="btn btn-ghost btn-sm" onClick={() => open(p.id)}>View →</button></td></tr>)}</tbody></table>}</Card>
       </div>
-      <div><Section title="Recent Activity" />
+      <div><Section title="Recent Activity" action={<button className="btn btn-ghost btn-sm" onClick={() => go('activity')}>View all →</button>} />
         <Card flush>{!log.rows.length ? <Empty title="No activity yet" /> : <div className="activity-feed">
-          {(log.rows as Row[]).map(l => <div className="activity-item" key={l.id}><div className="activity-dot" style={{ background: 'rgba(212,85,26,0.12)' }}>📝</div>
-            <div className="activity-content"><div className="activity-title">{String(l.action).replace(/_/g, ' ')}</div><div className="activity-meta">{l.entity_type} · {fdate(l.created_at)}</div></div></div>)}</div>}</Card>
+          {(log.rows as Row[]).map(l => <div className="activity-item" key={l.ev_id}><div className="activity-dot" style={{ background: 'rgba(212,85,26,0.12)' }}>{l.ev_kind === 'status' ? '🔄' : l.ev_kind === 'action' ? '⚡' : '📝'}</div>
+            <div className="activity-content"><div className="activity-title">{l.ev_summary}</div><div className="activity-meta">{l.ev_actor} · {new Date(l.ev_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</div></div></div>)}</div>}</Card>
         <Err m={log.err} />
       </div>
     </div>
@@ -46,37 +47,59 @@ export function AdminDashboard({ open, go }: { open: (id: string) => void; go: (
 
 export function Reservations() {
   const { can } = useAuth()
-  const q = useQuery(() => supabase.from('pool_commitments').select('*, buyer:buyer_org_id(legal_name, trade_name), pool:pool_id(pool_no, title)').order('created_at', { ascending: false }).limit(100), [])
-  const [st, setSt] = useState('')
+  const q = useQuery(() => supabase.from('pool_commitments').select('*, buyer:buyer_org_id(legal_name, trade_name), pool:pool_id(pool_no, title), pool_commitment_items(size, color, qty)').order('created_at', { ascending: false }).limit(200), [])
+  const [st, setSt] = useState(''); const [open, setOpen] = useState<string | null>(null)
+  const [manual, setManual] = useState(false); const [pay, setPay] = useState<Row | null>(null); const [cancel, setCancel] = useState<Row | null>(null); const [ext, setExt] = useState<Row | null>(null)
   const rows = (q.rows as Row[]).filter(r => !st || r.status === st)
+  const canBook = can('payments') || can('pools')
   return (<>
     <div className="filter-bar"><select className="filter-select" value={st} onChange={e => setSt(e.target.value)}><option value="">All Statuses</option>
-      {['reserved', 'paid', 'fulfilled', 'cancelled', 'expired', 'refund_pending', 'refunded'].map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}</select></div>
+      {['reserved', 'paid', 'fulfilled', 'cancelled', 'expired', 'refund_pending', 'refunded'].map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}</select>
+      {canBook && <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setManual(true)}>+ Manual reservation</button>}</div>
     <Err m={q.err} />
-    <Card flush>{q.loading ? <Loading /> : !rows.length ? <Empty title="No reservations" /> : <table><thead><tr><th>Buyer</th><th>Batch</th><th>Qty</th><th>Total</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody>
-      {rows.map(r => <tr key={r.id}><td className="td-strong">{r.buyer?.trade_name || r.buyer?.legal_name}</td><td>{r.pool?.title}<div className="td-muted">{r.pool?.pool_no}</div></td><td>{r.qty}</td><td>{inr(r.amount_due_paise)}</td><td><Status s={r.status} /></td><td className="td-muted">{fdate(r.created_at)}</td>
-        <td className="row">{can('payments') && r.status === 'reserved' && <button className="btn btn-outline btn-sm" onClick={async () => { const ref = prompt('Payment reference (UTR)?'); if (!ref) return; const e = await rpc('admin_mark_paid', { p_commitment: r.id, p_payment_ref: ref }); if (e) alert(e); q.reload() }}>Mark paid</button>}
-          {can('payments') && ['reserved', 'paid'].includes(r.status) && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={async () => { const why = prompt('Reason for cancelling this reservation?'); if (!why) return; const e = await rpc('admin_cancel_commitment', { p_commitment: r.id, p_reason: why }); if (e) alert(e); q.reload() }}>Cancel</button>}</td></tr>)}</tbody></table>}</Card></>)
+    <Card flush>{q.loading ? <Loading /> : !rows.length ? <Empty icon="📋" title="No reservations" desc={canBook ? 'Use “Manual reservation” to book a buyer into a batch yourself.' : undefined} /> : <table><thead><tr><th>Buyer</th><th>Batch</th><th>Qty</th><th>Total</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody>
+      {rows.map(r => <Fragment key={r.id}><tr><td className="td-strong">{r.buyer?.trade_name || r.buyer?.legal_name}</td><td>{r.pool?.title}<div className="td-muted">{r.pool?.pool_no}</div></td><td>{r.qty}</td><td>{inr(r.amount_due_paise)}</td><td><Status s={r.status} />{r.status === 'reserved' && <div className="td-muted">pay by {fdate(r.reserved_until)}</div>}</td><td className="td-muted">{fdate(r.created_at)}</td>
+        <td className="row">{can('payments') && r.status === 'reserved' && <button className="btn btn-outline btn-sm" onClick={() => setPay(r)}>Mark paid</button>}
+          {can('payments') && r.status === 'reserved' && <button className="btn btn-ghost btn-sm" onClick={() => setExt(r)}>Extend</button>}
+          {can('payments') && ['reserved', 'paid'].includes(r.status) && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => setCancel(r)}>Cancel</button>}
+          <button className="btn btn-ghost btn-sm" onClick={() => setOpen(open === r.id ? null : r.id)}>{open === r.id ? 'Hide' : 'Details'}</button></td></tr>
+        {open === r.id && <tr><td colSpan={7}><table className="po-table"><thead><tr><th>Size</th><th>Colour</th><th>Qty</th></tr></thead><tbody>
+          {(r.pool_commitment_items ?? []).map((i: Row, k: number) => <tr key={k}><td>{i.size}</td><td>{i.color}</td><td>{i.qty}</td></tr>)}</tbody></table>
+          <div className="td-muted" style={{ marginTop: 8 }}>Locked price {inr(r.unit_price_locked_paise)}/pc{r.payment_ref ? ` · payment ref ${r.payment_ref}` : ''}{r.paid_at ? ` · paid ${fdate(r.paid_at)}` : ''}{r.shipping_address ? ` · ship to ${[r.shipping_address.line1, r.shipping_address.city, r.shipping_address.pincode].filter(Boolean).join(', ')}` : ''}</div></td></tr>}</Fragment>)}</tbody></table>}</Card>
+    {manual && <ManualReservation onClose={() => setManual(false)} onDone={() => { setManual(false); q.reload() }} />}
+    {ext && <ExtendReservation r={ext} onClose={() => setExt(null)} onDone={q.reload} />}
+    {pay && <NoteDialog title="Mark as paid" sub={`${pay.buyer?.trade_name || pay.buyer?.legal_name} · ${inr(pay.amount_due_paise)}`} label="Payment reference (UTR / transaction ID)" confirm="Mark paid" onClose={() => setPay(null)}
+      onSubmit={async ref => { const e = await rpc('admin_mark_paid', { p_commitment: pay.id, p_payment_ref: ref }); if (!e) q.reload(); return e }} />}
+    {cancel && <NoteDialog title="Cancel reservation" sub={`${cancel.buyer?.trade_name || cancel.buyer?.legal_name} · ${cancel.pool?.pool_no}${cancel.status === 'paid' ? ' — a paid reservation moves to refund pending' : ''}`} label="Reason" confirm="Cancel reservation" danger onClose={() => setCancel(null)}
+      onSubmit={async why => { const e = await rpc('admin_cancel_commitment', { p_commitment: cancel.id, p_reason: why }); if (!e) q.reload(); return e }} />}
+  </>)
 }
 
 const PO_NEXT: Record<string, string[]> = { sent: ['cancelled'], accepted: ['in_production'], in_production: ['ready'], ready: ['shipped_to_voz'], shipped_to_voz: ['received'], received: ['closed'] }
 export function PurchaseOrders({ role }: { role: 'admin' | 'supplier' }) {
   const { can } = useAuth()
   const q = useQuery(() => supabase.from('purchase_orders').select('*, pool:pool_id(title, pool_no), mfr:manufacturer_org_id(legal_name, trade_name), purchase_order_items(size,color,qty)').order('created_at', { ascending: false }), [])
-  const [open, setOpen] = useState<string | null>(null)
+  const [open, setOpen] = useState<string | null>(null); const [manual, setManual] = useState(false); const [cancel, setCancel] = useState<Row | null>(null)
   const mv = async (id: string, to: string) => { const e = await rpc('update_po_status', { p_po: id, p_to: to }); if (e) alert(e); q.reload() }
   const supplierNext = (s: string) => (s === 'sent' ? ['accepted', 'rejected'] : (PO_NEXT[s] ?? []).filter(x => ['in_production', 'ready'].includes(x)))
-  return (<><Err m={q.err} />
-    <Card flush>{q.loading ? <Loading /> : !q.rows.length ? <Empty icon="🧾" title="No purchase orders" desc="A PO is created when a batch reaches its MOQ." /> : <table><thead><tr><th>PO</th><th>Batch</th>{role === 'admin' && <th>Supplier</th>}<th>Qty</th><th>Amount</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody>
+  return (<>
+    {role === 'admin' && can('orders') && <div className="filter-bar"><span className="td-muted">POs are created automatically when a batch reaches its MOQ. You can also place one yourself.</span>
+      <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setManual(true)}>+ Manual PO</button></div>}
+    <Err m={q.err} />
+    <Card flush>{q.loading ? <Loading /> : !q.rows.length ? <Empty icon="🧾" title="No purchase orders" desc={role === 'admin' ? 'A PO is created when a batch reaches its MOQ — or use “Manual PO”.' : 'You’ll see purchase orders here when a batch is sent to you.'} /> : <table><thead><tr><th>PO</th><th>Batch</th>{role === 'admin' && <th>Supplier</th>}<th>Qty</th><th>Amount</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody>
       {(q.rows as Row[]).map(p => <Fragment key={p.id}><tr><td className="td-strong">{p.po_no}</td><td>{p.pool?.title}</td>{role === 'admin' && <td>{p.mfr?.trade_name || p.mfr?.legal_name}</td>}
         <td>{p.total_qty}</td><td>{inr(p.total_cost_paise)}</td><td><Status s={p.status} /></td><td className="td-muted">{fdate(p.created_at)}</td>
-        <td className="row">{(role === 'admin' ? (can('orders') ? PO_NEXT[p.status] ?? [] : []) : supplierNext(p.status)).map(t => <button key={t} className="btn btn-outline btn-sm" onClick={() => mv(p.id, t)}>{t.replace(/_/g, ' ')}</button>)}
-          {role === 'admin' && can('orders') && !['cancelled', 'closed', 'received'].includes(p.status) && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={async () => { const why = prompt('Reason for cancelling this PO?'); if (!why) return; const e = await rpc('admin_cancel_po', { p_po: p.id, p_reason: why }); if (e) alert(e); q.reload() }}>Cancel</button>}
+        <td className="row">{(role === 'admin' ? (can('orders') ? PO_NEXT[p.status] ?? [] : []) : supplierNext(p.status)).filter(t => !(role === 'admin' && t === 'cancelled')).map(t => <button key={t} className="btn btn-outline btn-sm" onClick={() => mv(p.id, t)}>{t.replace(/_/g, ' ')}</button>)}
+          {role === 'admin' && can('orders') && !['cancelled', 'closed', 'received'].includes(p.status) && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => setCancel(p)}>Cancel</button>}
           <button className="btn btn-ghost btn-sm" onClick={() => setOpen(open === p.id ? null : p.id)}>{open === p.id ? 'Hide' : 'View'}</button></td></tr>
         {open === p.id && <tr key={p.id + 'd'}><td colSpan={8}><table className="po-table"><thead><tr><th>Size</th><th>Color</th><th>Qty</th></tr></thead><tbody>
           {(p.purchase_order_items ?? []).map((i: Row, k: number) => <tr key={k}><td>{i.size}</td><td>{i.color}</td><td>{i.qty}</td></tr>)}</tbody></table>
           <div className="po-total-row total"><span>Unit cost {inr(p.unit_cost_paise)}</span><span>Total {inr(p.total_cost_paise)}</span></div>
-          {p.expected_ready_date && <div className="td-muted">Expected ready: {fdate(p.expected_ready_date)}</div>}</td></tr>}</Fragment>)}</tbody></table>}</Card></>)
+          {p.expected_ready_date && <div className="td-muted">Expected ready: {fdate(p.expected_ready_date)}</div>}</td></tr>}</Fragment>)}</tbody></table>}</Card>
+    {manual && <ManualPO onClose={() => setManual(false)} onDone={() => { setManual(false); q.reload() }} />}
+    {cancel && <NoteDialog title={`Cancel ${cancel.po_no}`} sub="The supplier is notified. Buyer orders stay in place." label="Reason" confirm="Cancel PO" danger onClose={() => setCancel(null)}
+      onSubmit={async why => { const e = await rpc('admin_cancel_po', { p_po: cancel.id, p_reason: why }); if (!e) q.reload(); return e }} />}
+  </>)
 }
 
 async function suspendOrg(r: Row, reload: () => void) {

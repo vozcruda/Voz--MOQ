@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase, inr, fdate, daysLeft, type Row } from '../supabase'
 import { useQuery, Err, Status, Stats, Stat, Progress, pct, Section, Card, Empty, Loading, Modal } from '../ui/kit'
+import { OpenDispute } from './Disputes'
 
 const useCommits = () => useQuery(() => supabase.from('pool_commitments').select('*, pool:pool_id(id, pool_no, title, moq_qty, paid_qty, deadline_at, status), orders:order_id(order_no, status, expected_ship_date)').order('created_at', { ascending: false }), [])
 const isActive = (c: Row) => ['reserved', 'paid'].includes(c.status)
@@ -24,7 +25,7 @@ export function BuyerDashboard({ go, open }: { go: (p: string) => void; open: (i
 }
 
 export function MyOrders({ open }: { open: (id: string) => void }) {
-  const q = useCommits(); const [tab, setTab] = useState<'active' | 'completed' | 'cancelled'>('active')
+  const q = useCommits(); const [tab, setTab] = useState<'active' | 'completed' | 'cancelled'>('active'); const [dsp, setDsp] = useState<string | null>(null)
   const rows = (q.rows as Row[]).filter(c => tab === 'active' ? isActive(c) : tab === 'completed' ? c.status === 'fulfilled' : ['cancelled', 'expired', 'refund_pending', 'refunded'].includes(c.status))
   return (<>
     <div className="tabs">{(['active', 'completed', 'cancelled'] as const).map(t => <div key={t} className={'tab' + (tab === t ? ' active' : '')} onClick={() => setTab(t)}>{t[0].toUpperCase() + t.slice(1)}</div>)}</div>
@@ -33,12 +34,14 @@ export function MyOrders({ open }: { open: (id: string) => void }) {
         <div><div className="product-title">{c.pool?.title}</div><div className="td-muted">{c.qty} pcs · locked {inr(c.unit_price_locked_paise)}/pc · total {inr(c.amount_due_paise)}</div></div><Status s={c.status} /></div>
         <div className="progress-section" style={{ marginTop: 12 }}><div className="progress-header"><span className="progress-filled">{c.pool?.paid_qty} / {c.pool?.moq_qty} pcs</span><span className="progress-target">{pct(c.pool?.paid_qty ?? 0, c.pool?.moq_qty ?? 0)}%</span></div><Progress done={c.pool?.paid_qty ?? 0} total={c.pool?.moq_qty ?? 0} /></div>
         <div className="row" style={{ justifyContent: 'space-between' }}><span className="td-muted">{c.orders ? `${c.orders.order_no} · ${c.orders.status.replace(/_/g, ' ')}` : c.status === 'reserved' ? `Pay within ${daysLeft(c.reserved_until) ? daysLeft(c.reserved_until) + ' day(s)' : 'today'}` : `Batch closes in ${daysLeft(c.pool?.deadline_at)} days`}</span>
-          <button className="btn btn-outline btn-sm" onClick={() => open(c.pool_id)}>Track Batch</button></div></div></div>)}</div>}
+          <div className="row">{c.order_id && ['shipped', 'delivered', 'completed'].includes(c.orders?.status) && <button className="btn btn-ghost btn-sm" onClick={() => setDsp(c.order_id)}>Report a problem</button>}
+            <button className="btn btn-outline btn-sm" onClick={() => open(c.pool_id)}>Track Batch</button></div></div></div></div>)}</div>}
+    {dsp && <OpenDispute admin={false} orderId={dsp} onClose={() => setDsp(null)} onDone={() => { setDsp(null); q.reload() }} />}
   </>)
 }
 
 export function Payments() {
-  const q = useCommits(); const settings = useQuery(() => supabase.from('app_settings').select('*').like('key', '%payment%'), [])
+  const q = useCommits(); const settings = useQuery(() => supabase.from('app_settings').select('*').eq('key', 'payment_instructions'), [])
   const [sel, setSel] = useState<Row | null>(null)
   const rows = q.rows as Row[]
   const paid = rows.filter(c => ['paid', 'fulfilled'].includes(c.status)).reduce((s, c) => s + Number(c.amount_due_paise), 0)
@@ -51,7 +54,8 @@ export function Payments() {
         <td>{c.status === 'reserved' && <button className="btn btn-primary btn-sm" onClick={() => setSel(c)}>How to pay</button>}</td></tr>)}</tbody></table>}</Card>
     {sel && <Modal title="Payment instructions" sub={`${sel.pool?.title} · ${inr(sel.amount_due_paise)} due`} onClose={() => setSel(null)} footer={<button className="btn btn-primary" onClick={() => setSel(null)}>Done</button>}>
       <div className="res-summary"><div className="res-summary-row"><span className="key">Amount</span><span>{inr(sel.amount_due_paise)}</span></div><div className="res-summary-row"><span className="key">Pay before</span><span>{fdate(sel.reserved_until)}</span></div></div>
-      {(settings.rows as Row[]).map(s => <div className="info-row" key={s.key}><span className="info-key">{s.key.replace(/_/g, ' ')}</span><span className="info-val">{typeof s.value === 'object' ? JSON.stringify(s.value) : String(s.value)}</span></div>)}
-      <p className="form-hint" style={{ marginTop: 12 }}>After transferring, quote your transaction ID to Voz Cruda support; your reservation is marked paid once it is verified. Unpaid reservations expire automatically.</p></Modal>}
+      {(() => { const v = ((settings.rows as Row[])[0]?.value ?? {}) as Row; const L: [string, string][] = [['account_name', 'Account name'], ['bank_name', 'Bank'], ['account_number', 'Account number'], ['ifsc', 'IFSC'], ['upi_id', 'UPI ID']]
+        const have = L.filter(([k]) => v[k]); return have.length ? have.map(([k, l]) => <div className="info-row" key={k}><span className="info-key">{l}</span><span className="info-val mono">{String(v[k])}</span></div>) : <div className="form-hint">Payment details are not set up yet — please contact support.</div> })()}
+      <p className="form-hint" style={{ marginTop: 12 }}>{String(((settings.rows as Row[])[0]?.value as Row | undefined)?.note || 'After transferring, quote your transaction ID to Voz Cruda support.')} Your reservation is marked paid once it is verified. Unpaid reservations expire automatically.</p></Modal>}
   </>)
 }

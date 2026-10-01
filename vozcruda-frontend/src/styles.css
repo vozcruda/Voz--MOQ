@@ -936,3 +936,54 @@ th { white-space: nowrap; }
 .img-add span{font-size:1.5rem;line-height:1}
 .img-new{position:absolute;left:0.375rem;bottom:0.375rem;background:#2e7d4f;color:#fff;font-size:0.6875rem;padding:0.125rem 0.5rem;border-radius:999px}
 .tier-row .row{flex-wrap:nowrap}
+
+/* ---- Brand logo ---- */
+.brand-logo { display: block; width: 9.75rem; max-width: 100%; height: auto; }
+.brand-logo-lg { display: block; width: 13rem; max-width: 70%; height: auto; margin-bottom: 2rem; }
+.login-logo-small { display: none; width: 8.5rem; height: auto; margin: 0 auto 1rem; }
+.sidebar-brand { padding-top: 1.5rem; padding-bottom: 1.25rem; }
+@media (max-width: 900px) { .brand-logo-lg { width: 8.5rem; margin-bottom: 0; } }
+@media (max-height: 500px) and (orientation: landscape) { .login-logo-small { display: block; } .brand-logo { width: 7.5rem; } }
+
+/* ---- Ops: settings, disputes, activity log ---- */
+.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.settings-body{padding:1.125rem 1.25rem 1.25rem}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 0.875rem}
+.settings-grid .form-group:has(textarea){grid-column:1/-1}
+.saved-note{color:var(--success);font-size:0.8125rem;font-weight:600}
+.warn-box{background:rgba(184,134,11,0.09);border:1px solid rgba(184,134,11,0.3);color:#6f5208;border-radius:var(--radius);padding:0.75rem 0.875rem;font-size:0.8125rem;margin-bottom:0.875rem}
+.clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dispute-head{margin-bottom:1rem}
+.thread{display:flex;flex-direction:column;gap:0.625rem;margin:1rem 0;max-height:16rem;overflow-y:auto}
+.msg{border:1px solid var(--border);border-radius:var(--radius);padding:0.625rem 0.75rem;background:#fff;max-width:92%}
+.msg-buyer{align-self:flex-start}
+.msg-admin{align-self:flex-end;background:#fdf3ec;border-color:#f0d5c3}
+.msg-internal{background:#fff8dc;border-color:#ecdc9a;border-style:dashed}
+.msg-meta{font-size:0.6875rem;color:var(--muted);margin-bottom:0.125rem}
+.msg-body{font-size:0.875rem;white-space:pre-wrap;word-break:break-word}
+.resolution-box{background:rgba(45,122,79,0.08);border:1px solid rgba(45,122,79,0.25);border-radius:var(--radius);padding:0.625rem 0.75rem;font-size:0.875rem;margin-bottom:0.875rem}
+.reply-box{display:flex;flex-direction:column;gap:0.5rem}
+.resolve-box{margin-top:0.875rem;padding:0.875rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--warm-white);display:flex;flex-direction:column;gap:0.5rem}
+.log-day{font-size:0.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:1.25rem 0 0.5rem}
+.log-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.log-item+.log-item{border-top:1px solid rgba(224,219,208,0.6)}
+.log-line{display:flex;align-items:flex-start;gap:0.75rem;width:100%;text-align:left;background:none;border:0;padding:0.75rem 1rem;cursor:pointer;font:inherit;color:inherit}
+.log-line:hover{background:var(--warm-white)}
+.log-ico{width:2rem;height:2rem;border-radius:0.5rem;background:rgba(212,85,26,0.1);display:flex;align-items:center;justify-content:center;flex:none;font-size:0.9375rem}
+.log-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:0.125rem}
+.log-sum{font-size:0.875rem;word-break:break-word}
+.log-meta{font-size:0.75rem;color:var(--muted)}
+.log-tag{padding:0.0625rem 0.4375rem;border-radius:999px;background:rgba(138,132,120,0.14);font-size:0.6875rem}
+.log-tag-status{background:rgba(26,82,118,0.12);color:var(--info)}
+.log-tag-action{background:rgba(212,85,26,0.12);color:var(--accent)}
+.log-chev{color:var(--muted);font-size:0.75rem;padding-top:0.375rem}
+.log-detail{padding:0 1rem 0.875rem 3.75rem;overflow-x:auto}
+.log-diff{width:100%;font-size:0.8125rem;border-collapse:collapse}
+.log-diff th{text-align:left;font-size:0.6875rem;text-transform:uppercase;color:var(--muted);padding:0.25rem 0.5rem}
+.log-diff td{padding:0.25rem 0.5rem;border-top:1px solid rgba(224,219,208,0.5);word-break:break-word;vertical-align:top}
+.log-old{color:var(--danger);text-decoration:line-through;text-decoration-color:rgba(146,43,33,.4)}
+.log-new{color:var(--success);font-weight:600}
+.log-kv{display:grid;grid-template-columns:minmax(6rem,max-content) 1fr;gap:0.25rem 1rem;font-size:0.8125rem}
+.log-kv span{color:var(--muted)}
+.log-kv b{font-weight:500;word-break:break-word}
+@media (max-width:640px){.settings-grid{grid-template-columns:1fr}.log-detail{padding-left:1rem}.msg{max-width:100%}}

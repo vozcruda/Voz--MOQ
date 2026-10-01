@@ -6,7 +6,10 @@ import { AdminDashboard, Reservations, PurchaseOrders, Suppliers, Users } from '
 import { BuyerDashboard, MyOrders, Payments } from './pages/Buyer'
 import { SupplierDashboard } from './pages/Supplier'
 import { Catalogue } from './pages/Catalogue'
-import { CreateBatch, Orders, Disputes, Settings } from './pages/AdminExtra'
+import { CreateBatch, Orders } from './pages/AdminExtra'
+import { Disputes, BuyerDisputes } from './pages/Disputes'
+import { Settings } from './pages/Settings'
+import { ActivityLog } from './pages/ActivityLog'
 import { AdminTeam } from './pages/AdminTeam'
 import { Notifications } from './pages/Notifications'
 import { supabase } from './supabase'
@@ -18,17 +21,17 @@ const NAV: Record<Exclude<Role, 'none'>, { home: string; label: string; groups: 
     ['Overview', [{ id: 'dashboard', icon: '⬛', label: 'Dashboard' }, { id: 'notifications', icon: '🔔', label: 'Notifications' }]],
     ['Catalog', [{ id: 'products', icon: '📦', label: 'Products' }, { id: 'batches', icon: '📊', label: 'Batches' }]],
     ['Operations', [{ id: 'reservations', icon: '📋', label: 'Reservations' }, { id: 'purchase-orders', icon: '🧾', label: 'Purchase Orders' }, { id: 'orders', icon: '🚚', label: 'Orders' }, { id: 'disputes', icon: '⚖️', label: 'Disputes' }]],
-    ['Admin', [{ id: 'suppliers', icon: '🏭', label: 'Suppliers' }, { id: 'users', icon: '👤', label: 'Users' }, { id: 'settings', icon: '⚙️', label: 'Settings' }]]] },
+    ['Admin', [{ id: 'suppliers', icon: '🏭', label: 'Suppliers' }, { id: 'users', icon: '👤', label: 'Users' }, { id: 'settings', icon: '⚙️', label: 'Settings' }, { id: 'activity', icon: '🗂️', label: 'Activity Log' }]]] },
   buyer: { home: 'dashboard', label: 'Buyer', groups: [
     ['Overview', [{ id: 'dashboard', icon: '⬛', label: 'Dashboard' }, { id: 'notifications', icon: '🔔', label: 'Notifications' }]],
     ['Marketplace', [{ id: 'browse', icon: '🛍️', label: 'Browse Batches' }, { id: 'catalogue', icon: '👕', label: 'Product Catalogue' }]],
-    ['My Account', [{ id: 'orders', icon: '📋', label: 'My Orders' }, { id: 'payments', icon: '💳', label: 'Payments' }]]] },
+    ['My Account', [{ id: 'orders', icon: '📋', label: 'My Orders' }, { id: 'payments', icon: '💳', label: 'Payments' }, { id: 'disputes', icon: '⚖️', label: 'Disputes' }]]] },
   supplier: { home: 'dashboard', label: 'Supplier', groups: [
     ['Overview', [{ id: 'dashboard', icon: '⬛', label: 'Dashboard' }, { id: 'notifications', icon: '🔔', label: 'Notifications' }]],
     ['Products', [{ id: 'products', icon: '📦', label: 'My Products' }, { id: 'purchase-orders', icon: '🏭', label: 'Production Queue' }]]] },
 }
 const TITLES: Record<string, string> = { dashboard: 'Dashboard', products: 'Products', batches: 'Aggregation Batches', browse: 'Browse Batches', catalogue: 'Product Catalogue', reservations: 'Reservations',
-  'purchase-orders': 'Purchase Orders', suppliers: 'Suppliers', users: 'Users', disputes: 'Disputes', settings: 'Settings', team: 'Admin Team', notifications: 'Notifications', orders: 'Orders', payments: 'Payments', pool: 'Batch Detail' }
+  'purchase-orders': 'Purchase Orders', suppliers: 'Suppliers', users: 'Users', disputes: 'Disputes', settings: 'Settings', activity: 'Activity Log', team: 'Admin Team', notifications: 'Notifications', orders: 'Orders', payments: 'Payments', pool: 'Batch Detail' }
 
 function Shell() {
   const { role, name, email, signOut, can, canGrant, isSuper } = useAuth()
@@ -56,7 +59,8 @@ function Shell() {
   else if (page === 'suppliers') view = <Suppliers />
   else if (page === 'users') view = <Users />
   else if (page === 'orders') view = admin ? <Orders /> : <MyOrders open={openPool} />
-  else if (page === 'disputes') view = <Disputes />
+  else if (page === 'disputes') view = admin ? <Disputes /> : <BuyerDisputes />
+  else if (page === 'activity') view = <ActivityLog />
   else if (page === 'settings') view = <Settings />
   else if (page === 'team') view = <AdminTeam />
   else if (page === 'payments') view = <Payments />
@@ -66,7 +70,7 @@ function Shell() {
       <div className={'sidebar-backdrop' + (menu ? ' open' : '')} onClick={() => setMenu(false)} />
       <div className={'sidebar' + (menu ? ' open' : '')}>
         <button className="sidebar-close" aria-label="Close menu" onClick={() => setMenu(false)}>✕</button>
-        <div className="sidebar-brand"><div className="brand-mark"><div className="brand-icon">VC</div><div><div className="brand-name">Voz Cruda</div><div className="brand-tagline">MOQ Aggregation</div></div></div></div>
+        <div className="sidebar-brand"><img className="brand-logo" src="/brand/logo-lockup-dark.png" alt="MoqLess — Voz Cruda's MOQ Aggregation App" width="640" height="411" /></div>
         <div className="sidebar-role"><span className="role-dot" /><span>{admin ? (isSuper ? 'Super Admin' : 'Admin') : nav.label}</span></div>
         <nav className="sidebar-nav">
           {groups.map(([g, items]) => <div key={g}><div className="nav-section-label">{g}</div>

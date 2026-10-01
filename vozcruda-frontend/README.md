@@ -45,3 +45,11 @@ Run `backend/006_verification_notifications.sql` then `backend/007_product_image
 Photos are stored in the public Supabase Storage bucket `vc-public` (created by 007), under `products/<organization_id>/`.
 
 Then run `backend/008_product_editor.sql` (full product create/edit for admins: details, sizes/colours, price tiers).
+
+## 009 — settings, disputes, manual PO / reservation, activity log
+Run `backend/009_ops_settings_disputes_logs.sql` in the Supabase SQL editor (after 005–008).
+- **Settings**: seeded defaults + `admin_set_setting` (needs the `settings` permission).
+- **Disputes**: buyers raise (`open_dispute`), admins open on a buyer's behalf (`admin_open_dispute`), review, reply, internal notes, resolve. Orders can no longer be set to "disputed" without a dispute record.
+- **Manual reservation**: `admin_create_reservation` (optionally already paid), `admin_add_address`, `admin_extend_reservation`.
+- **Manual PO**: `admin_place_manual_po` — also works before MOQ (reason required); the normal MOQ flow shares the same code (`_place_po`).
+- **Activity log**: more tables audited, exact timestamps, `admin_activity_feed` (search / filter / paging) → Admin → Activity Log.

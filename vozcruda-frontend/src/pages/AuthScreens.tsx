@@ -11,13 +11,13 @@ function Wrap({ quote, children, features }: { quote: ReactNode; children: React
   return (
     <div className="login-wrap">
       <div className="login-left"><div>
-        <div className="brand-mark" style={{ marginBottom: 36 }}><div className="brand-icon">VC</div><div><div className="brand-name">Voz Cruda</div><div className="brand-tagline">MOQ Aggregation</div></div></div>
+        <img className="brand-logo-lg" src="/brand/logo-lockup-dark.png" alt="MoqLess — Voz Cruda's MOQ Aggregation App" width="640" height="411" />
         <div className="login-quote">{quote}</div>
         {features && <div className="login-features">
           {[['🏭', 'Factory-Direct Pricing', "Access MOQ prices that solo buyers can't reach"], ['🤝', 'Group Aggregation', 'Your order pools with other buyers automatically'], ['📦', 'Real-Time Progress', 'Track exactly when your batch is ready to close']]
             .map(([i, t, d]) => <div className="login-feature" key={t}><div className="login-feature-icon">{i}</div><div><div className="login-feature-title">{t}</div><div className="login-feature-desc">{d}</div></div></div>)}</div>}
       </div><div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>© {new Date().getFullYear()} Voz Cruda LLP</div></div>
-      <div className="login-right">{children}</div>
+      <div className="login-right"><img className="login-logo-small" src="/brand/logo-lockup-light.png" alt="MoqLess" width="640" height="411" />{children}</div>
     </div>
   )
 }
