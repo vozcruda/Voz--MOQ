@@ -23,7 +23,7 @@ function Wrap({ quote, children, features }: { quote: ReactNode; children: React
 }
 
 export function AuthScreen() {
-  const [mode, setMode] = useState<'in' | 'up'>('in')
+  const [mode, setMode] = useState<'in' | 'up' | 'forgot'>('in')
   const [f, setF] = useState({ email: '', pw: '', pw2: '', name: '', phone: '', business: '', gstin: '', type: 'buyer' })
   const [err, setErr] = useState(''); const [info, setInfo] = useState(''); const [busy, setBusy] = useState(false); const [needConfirm, setNeedConfirm] = useState(false); const [sent, setSent] = useState('')
   const up = (k: string, v: string) => setF({ ...f, [k]: v })
@@ -60,6 +60,25 @@ export function AuthScreen() {
       </div>
     </Wrap>
   )
+  const sendReset = async () => {
+    setErr(''); setInfo('')
+    if (!/^\S+@\S+\.\S+$/.test(f.email.trim())) return setErr('Enter the email address you signed up with.')
+    setBusy(true); const { error } = await supabase.auth.resetPasswordForEmail(f.email.trim(), { redirectTo: window.location.origin }); setBusy(false)
+    if (error) return setErr(error.message)
+    setInfo('If an account exists for ' + f.email.trim() + ', a reset link is on its way. Open the newest email and follow the link.')
+  }
+  if (mode === 'forgot') return (
+    <Wrap quote={<>"We’ll get you<br />back in."</>}>
+      <div className="login-card">
+        <div className="login-title">Forgot your password?</div>
+        <div className="login-sub">Enter your email and we’ll send you a link to choose a new one. Your email address is your username.</div>
+        <Field label="Email address"><input className="form-input" type="email" value={f.email} onChange={e => up('email', e.target.value)} placeholder="you@business.com" onKeyDown={e => e.key === 'Enter' && sendReset()} /></Field>
+        <Err m={err} />{info && <div className="ok">{info}</div>}
+        <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 11, margin: '8px 0 16px' }} disabled={busy} onClick={sendReset}>{busy ? 'Sending…' : info ? 'Send again' : 'Send reset link'}</button>
+        <div style={{ textAlign: 'center', fontSize: 13 }}><button className="link" onClick={() => { setMode('in'); setErr(''); setInfo('') }}>← Back to sign in</button></div>
+      </div>
+    </Wrap>
+  )
   return (
     <Wrap features={mode === 'in'} quote={mode === 'in' ? <>"Small orders,<br />collective power."</> : <>"Join the collective.<br />Buy better."</>}>
       <div className="login-card" style={{ width: mode === 'up' ? 460 : 420 }}>
@@ -77,6 +96,7 @@ export function AuthScreen() {
         {mode === 'up' && <Field label="GST Number (optional)"><input className="form-input" value={f.gstin} onChange={e => up('gstin', e.target.value.toUpperCase())} placeholder="22AAAAA0000A1Z5" /></Field>}
         <Err m={err} />{info && <div className="ok">{info}</div>}
         {needConfirm && mode === 'in' && <button className="link" onClick={resend}>Resend confirmation email</button>}
+        {mode === 'in' && <div style={{ textAlign: 'right', marginTop: -4 }}><button className="link" style={{ fontSize: 13 }} onClick={() => { setMode('forgot'); setErr(''); setInfo('') }}>Forgot password?</button></div>}
         <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 11, margin: '8px 0 16px' }} disabled={busy} onClick={submit}>{busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : 'Create account'}</button>
         <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>
           {mode === 'in' ? <>No account? <button className="link" onClick={() => setMode('up')}>Create one →</button></> : <>Already have an account? <button className="link" onClick={() => setMode('in')}>Sign in →</button></>}</div>
@@ -110,6 +130,31 @@ export function Onboarding() {
         <Err m={err} />
         <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 11 }} disabled={busy || !name.trim() || !ok} onClick={go}>Continue</button>
         <div style={{ textAlign: 'center', marginTop: 16 }}><button className="link" onClick={signOut}>Sign out</button></div>
+      </div>
+    </Wrap>
+  )
+}
+
+export function ResetPassword() {
+  const { clearRecovery, email, signOut } = useAuth()
+  const [pw, setPw] = useState(''); const [pw2, setPw2] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false)
+  const go = async () => {
+    setErr('')
+    if (pw.length < 8) return setErr('Password must be at least 8 characters.')
+    if (pw !== pw2) return setErr('Passwords do not match.')
+    setBusy(true); const { error } = await supabase.auth.updateUser({ password: pw }); setBusy(false)
+    if (error) return setErr(error.message)
+    clearRecovery()
+  }
+  return (
+    <Wrap quote={<>"Choose a new password."</>}>
+      <div className="login-card">
+        <div className="login-title">Set a new password</div><div className="login-sub">For {email}. You’ll be signed in right after.</div>
+        <Field label="New password"><input className="form-input" type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="Min. 8 characters" autoFocus /></Field>
+        <Field label="Confirm new password"><input className="form-input" type="password" value={pw2} onChange={e => setPw2(e.target.value)} onKeyDown={e => e.key === 'Enter' && go()} /></Field>
+        <Err m={err} />
+        <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 11, margin: '8px 0 12px' }} disabled={busy} onClick={go}>{busy ? 'Saving…' : 'Save password'}</button>
+        <div style={{ textAlign: 'center' }}><button className="link" onClick={() => { clearRecovery(); signOut() }}>Cancel</button></div>
       </div>
     </Wrap>
   )

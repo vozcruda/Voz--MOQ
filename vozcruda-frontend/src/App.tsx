@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AuthProvider, useAuth, type Role } from './auth'
-import { AuthScreen, Onboarding } from './pages/AuthScreens'
+import { AuthScreen, Onboarding, ResetPassword } from './pages/AuthScreens'
 import { PoolsBrowse, PoolDetail } from './pages/Pools'
 import { AdminDashboard, Reservations, PurchaseOrders, Suppliers, Users } from './pages/Admin'
 import { BuyerDashboard, MyOrders, Payments } from './pages/Buyer'
@@ -95,8 +95,9 @@ function Shell() {
 }
 
 function Gate() {
-  const { ready, session, role } = useAuth()
+  const { ready, session, role, recovery } = useAuth()
   if (!ready) return <div className="root-loading">Loading…</div>
+  if (session && recovery) return <ResetPassword />
   if (!session) return <AuthScreen />
   if (role === 'none') return <Onboarding />
   return <Shell key={role} />

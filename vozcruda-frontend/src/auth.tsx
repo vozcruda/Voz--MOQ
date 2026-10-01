@@ -10,6 +10,7 @@ interface Ctx {
   session: Session | null; ready: boolean; role: Role; org: Row | null; name: string; email: string
   access: Access | null; isSuper: boolean; canGrant: boolean; can: (p: Perm) => boolean
   refresh: () => Promise<void>; signOut: () => Promise<void>
+  recovery: boolean; clearRecovery: () => void
 }
 const C = createContext<Ctx>(null as unknown as Ctx)
 export const useAuth = () => useContext(C)
@@ -21,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [org, setOrg] = useState<Row | null>(null)
   const [name, setName] = useState('')
   const [access, setAccess] = useState<Access | null>(null)
+  const [recovery, setRecovery] = useState(false)
 
   const load = useCallback(async (s: Session | null) => {
     if (!s) { setRole('none'); setOrg(null); setName(''); setAccess(null); setReady(true); return }
@@ -41,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); load(data.session) })
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => { setSession(s); load(s) })
+    const { data } = supabase.auth.onAuthStateChange((e, s) => { if (e === 'PASSWORD_RECOVERY') setRecovery(true); setSession(s); load(s) })
     return () => data.subscription.unsubscribe()
   }, [load])
 
@@ -49,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session, ready, role, org, name, email: session?.user.email ?? '',
     access, isSuper: !!access?.is_super, canGrant: !!access?.can_grant, can: p => !!access && (access.is_super || access.permissions.includes(p)),
     refresh: () => load(session), signOut: async () => { await supabase.auth.signOut() },
+    recovery, clearRecovery: () => setRecovery(false),
   }
   return <C.Provider value={value}>{children}</C.Provider>
 }
