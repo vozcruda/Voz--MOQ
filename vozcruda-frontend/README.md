@@ -43,3 +43,5 @@ Create Batch (`admin_create_pool` + `admin_open_pool`), batch actions (open / ex
 ## Product photos + admin-created products
 Run `backend/006_verification_notifications.sql` then `backend/007_product_images_admin_products.sql` in the Supabase SQL editor.
 Photos are stored in the public Supabase Storage bucket `vc-public` (created by 007), under `products/<organization_id>/`.
+
+Then run `backend/008_product_editor.sql` (full product create/edit for admins: details, sizes/colours, price tiers).
