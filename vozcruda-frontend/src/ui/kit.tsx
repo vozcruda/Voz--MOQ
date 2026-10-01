@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type KeyboardEvent as ReactKeyEvent, type ReactNode } from 'react'
 
 export function useQuery<T = Record<string, unknown>>(
   fn: () => PromiseLike<{ data: unknown; error: { message: string } | null }>,
@@ -74,3 +74,21 @@ export const Card = ({ title, action, children, flush }: { title?: string; actio
 export const Field = ({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) => (
   <div className="form-group"><label className="form-label">{label}</label>{children}{hint && <div className="form-hint">{hint}</div>}</div>
 )
+
+/** Password box with a show/hide eye. */
+export function PasswordInput({ value, onChange, placeholder, onKeyDown, autoFocus, autoComplete }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; onKeyDown?: (e: ReactKeyEvent<HTMLInputElement>) => void; autoFocus?: boolean; autoComplete?: string
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="pw-wrap">
+      <input className="form-input" type={show ? 'text' : 'password'} value={value} placeholder={placeholder} autoFocus={autoFocus} autoComplete={autoComplete}
+        onChange={e => onChange(e.target.value)} onKeyDown={onKeyDown} />
+      <button type="button" className="pw-eye" aria-label={show ? 'Hide password' : 'Show password'} aria-pressed={show} onClick={() => setShow(s => !s)}>
+        {show
+          ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12A3 3 0 1 1 9.88 9.88"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+      </button>
+    </div>
+  )
+}

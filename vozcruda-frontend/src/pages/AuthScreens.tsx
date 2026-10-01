@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { supabase, rpc } from '../supabase'
 import { useAuth } from '../auth'
-import { Err, Field } from '../ui/kit'
+import { Err, Field, PasswordInput } from '../ui/kit'
 
 const PENDING = 'vc_pending_signup'
 const save = (v: object) => { try { localStorage.setItem(PENDING, JSON.stringify(v)) } catch { /* ignore */ } }
@@ -91,8 +91,8 @@ export function AuthScreen() {
           <Field label="Business name"><input className="form-input" value={f.business} onChange={e => up('business', e.target.value)} placeholder="Sharma Boutique" /></Field></>}
         <Field label="Email address"><input className="form-input" type="email" value={f.email} onChange={e => up('email', e.target.value)} placeholder="you@business.com" /></Field>
         <div className={mode === 'up' ? 'form-row' : ''}>
-          <Field label="Password"><input className="form-input" type="password" value={f.pw} onChange={e => up('pw', e.target.value)} placeholder="Min. 8 characters" onKeyDown={e => e.key === 'Enter' && mode === 'in' && submit()} /></Field>
-          {mode === 'up' && <Field label="Confirm password"><input className="form-input" type="password" value={f.pw2} onChange={e => up('pw2', e.target.value)} /></Field>}</div>
+          <Field label="Password"><PasswordInput value={f.pw} onChange={v => up('pw', v)} placeholder="Min. 8 characters" autoComplete={mode === 'in' ? 'current-password' : 'new-password'} onKeyDown={e => e.key === 'Enter' && mode === 'in' && submit()} /></Field>
+          {mode === 'up' && <Field label="Confirm password"><PasswordInput value={f.pw2} onChange={v => up('pw2', v)} autoComplete="new-password" /></Field>}</div>
         {mode === 'up' && <Field label="GST Number (optional)"><input className="form-input" value={f.gstin} onChange={e => up('gstin', e.target.value.toUpperCase())} placeholder="22AAAAA0000A1Z5" /></Field>}
         <Err m={err} />{info && <div className="ok">{info}</div>}
         {needConfirm && mode === 'in' && <button className="link" onClick={resend}>Resend confirmation email</button>}
@@ -150,8 +150,8 @@ export function ResetPassword() {
     <Wrap quote={<>"Choose a new password."</>}>
       <div className="login-card">
         <div className="login-title">Set a new password</div><div className="login-sub">For {email}. You’ll be signed in right after.</div>
-        <Field label="New password"><input className="form-input" type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="Min. 8 characters" autoFocus /></Field>
-        <Field label="Confirm new password"><input className="form-input" type="password" value={pw2} onChange={e => setPw2(e.target.value)} onKeyDown={e => e.key === 'Enter' && go()} /></Field>
+        <Field label="New password"><PasswordInput value={pw} onChange={setPw} placeholder="Min. 8 characters" autoFocus autoComplete="new-password" /></Field>
+        <Field label="Confirm new password"><PasswordInput value={pw2} onChange={setPw2} autoComplete="new-password" onKeyDown={e => e.key === 'Enter' && go()} /></Field>
         <Err m={err} />
         <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 11, margin: '8px 0 12px' }} disabled={busy} onClick={go}>{busy ? 'Saving…' : 'Save password'}</button>
         <div style={{ textAlign: 'center' }}><button className="link" onClick={() => { clearRecovery(); signOut() }}>Cancel</button></div>

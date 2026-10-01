@@ -1006,3 +1006,9 @@ th { white-space: nowrap; }
 .sidebar-logout{padding:0 1rem 1rem}
 .logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.625rem 0.875rem;border-radius:var(--radius);border:1px solid rgba(255,255,255,0.18);background:transparent;color:rgba(255,255,255,0.85);font:inherit;font-weight:600;font-size:0.875rem;cursor:pointer}
 .logout-btn:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.35);color:#fff}
+
+/* ---- Password eye ---- */
+.pw-wrap{position:relative}
+.pw-wrap .form-input{padding-right:2.75rem}
+.pw-eye{position:absolute;right:0.25rem;top:50%;transform:translateY(-50%);width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;background:none;border:0;color:var(--muted);cursor:pointer;border-radius:var(--radius)}
+.pw-eye:hover,.pw-eye:focus-visible{color:var(--ink)}
