@@ -38,3 +38,8 @@ Create Batch (`admin_create_pool` + `admin_open_pool`), batch actions (open / ex
 - Payment proof upload (no `payments` table yet): buyers see instructions; admin marks paid with the UTR.
 - Product images, creating a batch from an accepted RFQ quote (`admin_create_direct_pool`), RFQ/quotes/messaging screens (not in the prototype).
 - Supplier names are hidden from buyers by design (schema exposes only the verification level).
+
+
+## Product photos + admin-created products
+Run `backend/006_verification_notifications.sql` then `backend/007_product_images_admin_products.sql` in the Supabase SQL editor.
+Photos are stored in the public Supabase Storage bucket `vc-public` (created by 007), under `products/<organization_id>/`.
