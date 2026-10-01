@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Supabase Edge Function: admin-create-user
 // Lets an admin create a buyer / supplier / admin account on someone's behalf.
 // Needs the service-role key (auto-provided as SUPABASE_SERVICE_ROLE_KEY) — never expose that in the browser.
