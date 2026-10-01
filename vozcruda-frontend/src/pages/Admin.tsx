@@ -25,7 +25,7 @@ export function AdminDashboard({ open, go }: { open: (id: string) => void; go: (
     {(disp.rows.length > 0 || pend.rows.length > 0) && <div className="info-card" style={{ marginBottom: 20 }}><div className="info-card-body row">
       {pend.rows.length > 0 && <button className="btn btn-outline btn-sm" onClick={() => go('suppliers')}>🏭 {pend.rows.length} supplier(s) awaiting verification</button>}
       {disp.rows.length > 0 && <button className="btn btn-outline btn-sm" onClick={() => go('disputes')}>⚖️ {disp.rows.length} open dispute(s)</button>}</div></div>}
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 360px', gap: 20 }} className="two-col">
+    <div className="dash-grid">
       <div>
         <Section title="🔥 Nearing MOQ" sub="Batches closest to triggering" />
         <Card flush>{!near.length ? <Empty title="No active batches" /> : <table><thead><tr><th>Batch</th><th>Progress</th><th>Remaining</th><th>Closes</th><th></th></tr></thead><tbody>

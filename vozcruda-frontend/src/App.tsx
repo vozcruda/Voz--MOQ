@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AuthProvider, useAuth, type Role } from './auth'
 import { AuthScreen, Onboarding } from './pages/AuthScreens'
 import { PoolsBrowse, PoolDetail } from './pages/Pools'
@@ -35,12 +35,14 @@ function Shell() {
   const r = role as Exclude<Role, 'none'>; const nav = NAV[r]
   const [page, setPage] = useState('dashboard'); const [pool, setPool] = useState<string | null>(null); const [back, setBack] = useState('dashboard')
   const unread = useQuery(() => supabase.from('notifications').select('id').is('read_at', null), [page])
-  const go = (p: string) => { setPool(null); setPage(p) }
-  const openPool = (id: string) => { setBack(page); setPool(id); setPage('pool') }
+  const go = (p: string) => { setPool(null); setPage(p); setMenu(false) }
+  const openPool = (id: string) => { setBack(page); setPool(id); setPage('pool'); setMenu(false) }
   const groups = nav.groups.map(([g, items]) => [g, g === 'Admin' && canGrant ? [...items, { id: 'team', icon: '🛡️', label: 'Admin Team' }] : items] as [string, Item[]])
   const initials = (name || email).split(/[\s@]/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')
   const admin = r === 'admin'
   const [creating, setCreating] = useState(false)
+  const [menu, setMenu] = useState(false)
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(false) }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k) }, [])
 
   let view = null
   if (page === 'pool' && pool) view = <PoolDetail id={pool} onBack={() => go(back)} goPage={go} />
@@ -61,7 +63,9 @@ function Shell() {
 
   return (
     <div className="app">
-      <div className="sidebar">
+      <div className={'sidebar-backdrop' + (menu ? ' open' : '')} onClick={() => setMenu(false)} />
+      <div className={'sidebar' + (menu ? ' open' : '')}>
+        <button className="sidebar-close" aria-label="Close menu" onClick={() => setMenu(false)}>✕</button>
         <div className="sidebar-brand"><div className="brand-mark"><div className="brand-icon">VC</div><div><div className="brand-name">Voz Cruda</div><div className="brand-tagline">MOQ Aggregation</div></div></div></div>
         <div className="sidebar-role"><span className="role-dot" /><span>{admin ? (isSuper ? 'Super Admin' : 'Admin') : nav.label}</span></div>
         <nav className="sidebar-nav">
@@ -74,9 +78,9 @@ function Shell() {
           <button title="Sign out" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', fontSize: 14 }} onClick={signOut}>⎋</button></div>
       </div>
       <div className="main">
-        <div className="topbar"><div className="topbar-title">{TITLES[page] ?? page}</div>
+        <div className="topbar"><button className="menu-btn" aria-label="Open menu" onClick={() => setMenu(true)}>☰</button><div className="topbar-title">{TITLES[page] ?? page}</div>
           {admin && can('pools') && <div className="topbar-actions"><button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>+ Create Batch</button></div>}</div>
-        <div className="page-content">{view}</div>
+        <div className="page-content"><div className="page-inner">{view}</div></div>
       </div>
       {creating && <CreateBatch onClose={() => setCreating(false)} onDone={id => { setCreating(false); openPool(id) }} />}
     </div>

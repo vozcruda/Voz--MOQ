@@ -177,7 +177,7 @@ function JoinModal({ pool, tiers, buyerOrg, onClose, onDone }: { pool: Pool; tie
   return (
     <Modal title={`Join Batch — ${pool.title}`} sub={`${Math.max(0, pool.moq - pool.paid)} pieces to MOQ · ${inr(price)}/piece`} onClose={onClose}
       footer={<><button className="btn btn-outline" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={submit}>{busy ? 'Reserving…' : 'Reserve & Pay →'}</button></>}>
-      {items.map((it, i) => <div className="form-row" key={i} style={{ gridTemplateColumns: '1fr 1fr 90px', marginBottom: 10 }}>
+      {items.map((it, i) => <div className="form-row-3" key={i}>
         {pick(sizes, it.size, v => set(i, 'size', v), 'Size')}{pick(colors, it.color, v => set(i, 'color', v), 'Color')}
         <input className="form-input" type="number" min={1} value={it.qty} onChange={e => set(i, 'qty', +e.target.value)} /></div>)}
       <button className="link" onClick={() => setItems([...items, { size: '', color: '', qty: 1 }])}>+ add size / color</button>

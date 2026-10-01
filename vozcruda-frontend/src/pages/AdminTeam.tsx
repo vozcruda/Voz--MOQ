@@ -39,7 +39,7 @@ export function CreateAccount({ onClose, onDone, presetAdmin }: { onClose: () =>
   const save = async () => {
     setErr(''); setBusy(true)
     const { data, error } = await supabase.functions.invoke('admin-create-user', { body: { account_type: f.type, email: f.email, password: f.password || undefined, full_name: f.full_name,
-      phone: f.phone, legal_name: f.legal_name, trade_name: f.trade_name, gstin: f.gstin.toUpperCase(), pan: f.pan.toUpperCase(), approve: f.approve, permissions: perms, can_grant: f.can_grant } })
+      phone: f.phone, legal_name: f.legal_name, trade_name: f.trade_name, gstin: f.gstin.toUpperCase(), pan: f.pan.toUpperCase(), approve: f.approve, permissions: perms, can_grant: f.can_grant, redirect_to: window.location.origin } })
     setBusy(false)
     if (error) return setErr(await fnError(error))
     setDone((data as Row).invited ? `Invitation email sent to ${f.email}. They set their own password.` : (data as Row).created ? `Account created for ${f.email}.` : `${f.email} already had an account; access was updated.`)

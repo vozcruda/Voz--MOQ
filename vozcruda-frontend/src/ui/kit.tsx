@@ -50,6 +50,7 @@ export const Empty = ({ icon = '📭', title, desc }: { icon?: string; title: st
 export const Loading = () => <div className="empty-state"><div className="empty-desc">Loading…</div></div>
 
 export function Modal({ title, sub, onClose, children, footer }: { title: string; sub?: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k) }, [onClose])
   return (
     <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal">

@@ -25,17 +25,22 @@ function Wrap({ quote, children, features }: { quote: ReactNode; children: React
 export function AuthScreen() {
   const [mode, setMode] = useState<'in' | 'up'>('in')
   const [f, setF] = useState({ email: '', pw: '', pw2: '', name: '', phone: '', business: '', gstin: '', type: 'buyer' })
-  const [err, setErr] = useState(''); const [info, setInfo] = useState(''); const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(''); const [info, setInfo] = useState(''); const [busy, setBusy] = useState(false); const [needConfirm, setNeedConfirm] = useState(false)
   const up = (k: string, v: string) => setF({ ...f, [k]: v })
+  const resend = async () => {
+    setErr(''); const { error } = await supabase.auth.resend({ type: 'signup', email: f.email, options: { emailRedirectTo: window.location.origin } })
+    if (error) setErr(error.message); else { setInfo('Confirmation email sent again. Open the newest one.'); setNeedConfirm(false) }
+  }
   const submit = async () => {
     setErr(''); setInfo(''); setBusy(true)
     if (mode === 'in') {
-      const { error } = await supabase.auth.signInWithPassword({ email: f.email, password: f.pw }); if (error) setErr(error.message)
+      const { error } = await supabase.auth.signInWithPassword({ email: f.email, password: f.pw })
+      if (error) { setErr(error.message); setNeedConfirm(/confirm/i.test(error.message)) }
     } else {
       if (f.pw.length < 8) { setBusy(false); return setErr('Password must be at least 8 characters.') }
       if (f.pw !== f.pw2) { setBusy(false); return setErr('Passwords do not match.') }
       save({ type: f.type, business: f.business, gstin: f.gstin })
-      const { data, error } = await supabase.auth.signUp({ email: f.email, password: f.pw, options: { data: { full_name: f.name } } })
+      const { data, error } = await supabase.auth.signUp({ email: f.email, password: f.pw, options: { data: { full_name: f.name }, emailRedirectTo: window.location.origin } })
       if (error) setErr(error.message)
       else if (!data.session) setInfo('Account created. Check your email to confirm, then sign in.')
       if (data.session && f.phone) await supabase.from('profiles').update({ phone: f.phone }).eq('id', data.session.user.id)
@@ -58,6 +63,7 @@ export function AuthScreen() {
           {mode === 'up' && <Field label="Confirm password"><input className="form-input" type="password" value={f.pw2} onChange={e => up('pw2', e.target.value)} /></Field>}</div>
         {mode === 'up' && <Field label="GST Number (optional)"><input className="form-input" value={f.gstin} onChange={e => up('gstin', e.target.value.toUpperCase())} placeholder="22AAAAA0000A1Z5" /></Field>}
         <Err m={err} />{info && <div className="ok">{info}</div>}
+        {needConfirm && mode === 'in' && <button className="link" onClick={resend}>Resend confirmation email</button>}
         <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 11, margin: '8px 0 16px' }} disabled={busy} onClick={submit}>{busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : 'Create account'}</button>
         <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>
           {mode === 'in' ? <>No account? <button className="link" onClick={() => setMode('up')}>Create one →</button></> : <>Already have an account? <button className="link" onClick={() => setMode('in')}>Sign in →</button></>}</div>
