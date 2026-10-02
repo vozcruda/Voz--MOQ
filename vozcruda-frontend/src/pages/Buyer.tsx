@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase, inr, fdate, daysLeft, type Row } from '../supabase'
 import { useQuery, Err, Status, Stats, Stat, Progress, pct, Section, Card, Empty, Loading, Modal } from '../ui/kit'
 import { OpenDispute } from './Disputes'
@@ -40,19 +40,49 @@ export function MyOrders({ open }: { open: (id: string) => void }) {
   </>)
 }
 
+const PAY_MSG: Record<string, [string, string]> = {
+  success: ['ok', '✓ Payment received and verified. Your reservation is confirmed.'],
+  pending: ['warn', 'Your payment is still processing. It will update here automatically once the bank confirms.'],
+  failed: ['bad', 'The payment did not go through, so you have not been charged. You can try again below.'],
+  refund_needed: ['warn', 'We received your payment but need to check it before confirming. Our team will contact you.'],
+  mismatch: ['warn', 'We received your payment but need to check it before confirming. Our team will contact you.'],
+}
+async function startPayU(commitmentId: string): Promise<string | null> {
+  const { data, error } = await supabase.functions.invoke('payu-initiate', { body: { commitment_id: commitmentId } })
+  if (error) {
+    let m = error.message
+    try { const j = await (error as { context?: Response }).context?.json(); if (j?.error) m = j.error } catch { /* keep default */ }
+    return m
+  }
+  const d = data as { action?: string; fields?: Record<string, string>; error?: string }
+  if (!d?.action || !d.fields) return d?.error ?? 'Could not start the payment.'
+  const f = document.createElement('form'); f.method = 'POST'; f.action = d.action
+  Object.entries(d.fields).forEach(([k, v]) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; f.appendChild(i) })
+  document.body.appendChild(f); f.submit()
+  return null
+}
+
 export function Payments() {
-  const q = useCommits(); const settings = useQuery(() => supabase.from('app_settings').select('*').eq('key', 'payment_instructions'), [])
+  const q = useCommits();
+  const [ret, setRet] = useState<string | null>(null); const [payBusy, setPayBusy] = useState<string | null>(null); const [payErr, setPayErr] = useState('')
+  useEffect(() => {
+    const u = new URL(window.location.href); const r = u.searchParams.get('payment')
+    if (r) { setRet(r); u.searchParams.delete('payment'); u.searchParams.delete('txn'); window.history.replaceState({}, '', u.pathname + (u.search || '') + u.hash); q.reload() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const payOnline = async (c: Row) => { setPayErr(''); setPayBusy(c.id); const e = await startPayU(c.id); if (e) { setPayBusy(null); setPayErr(e) } }; const settings = useQuery(() => supabase.from('app_settings').select('*').eq('key', 'payment_instructions'), [])
   const [sel, setSel] = useState<Row | null>(null)
   const rows = q.rows as Row[]
   const paid = rows.filter(c => ['paid', 'fulfilled'].includes(c.status)).reduce((s, c) => s + Number(c.amount_due_paise), 0)
   const pend = rows.filter(c => c.status === 'reserved').reduce((s, c) => s + Number(c.amount_due_paise), 0)
   return (<>
+    {ret && <div className={'pay-banner ' + (PAY_MSG[ret]?.[0] ?? 'warn')}>{PAY_MSG[ret]?.[1] ?? 'We could not confirm your payment yet. If money was deducted, it is verified automatically — contact support with your transaction details.'}<button className="notif-x" aria-label="Dismiss" onClick={() => setRet(null)}>✕</button></div>}
     <Stats><Stat label="Total Paid" value={inr(paid)} /><Stat label="Pending" value={inr(pend)} /></Stats>
-    <Err m={q.err} />
+    <Err m={q.err || payErr} />
     <Card title="Payments" flush>{!rows.length ? <Empty icon="💳" title="No payments yet" /> : <table><thead><tr><th>Batch</th><th>Amount</th><th>Pay by</th><th>Reference</th><th>Status</th><th></th></tr></thead><tbody>
       {rows.map(c => <tr key={c.id}><td className="td-strong">{c.pool?.title} <span className="td-muted">({c.qty} pcs)</span></td><td>{inr(c.amount_due_paise)}</td><td>{c.status === 'reserved' ? fdate(c.reserved_until) : '—'}</td><td className="mono">{c.payment_ref ?? '—'}</td><td><Status s={c.status} /></td>
-        <td>{c.status === 'reserved' && <button className="btn btn-primary btn-sm" onClick={() => setSel(c)}>How to pay</button>}</td></tr>)}</tbody></table>}</Card>
-    {sel && <Modal title="Payment instructions" sub={`${sel.pool?.title} · ${inr(sel.amount_due_paise)} due`} onClose={() => setSel(null)} footer={<button className="btn btn-primary" onClick={() => setSel(null)}>Done</button>}>
+        <td>{c.status === 'reserved' && <div className="row" style={{ flexWrap: 'nowrap' }}><button className="btn btn-primary btn-sm" disabled={payBusy === c.id} onClick={() => payOnline(c)}>{payBusy === c.id ? 'Opening…' : 'Pay now'}</button><button className="btn btn-outline btn-sm" onClick={() => setSel(c)}>Bank transfer</button></div>}</td></tr>)}</tbody></table>}</Card>
+    {sel && <Modal title="Pay by bank transfer" sub={`${sel.pool?.title} · ${inr(sel.amount_due_paise)} due`} onClose={() => setSel(null)} footer={<button className="btn btn-primary" onClick={() => setSel(null)}>Done</button>}>
       <div className="res-summary"><div className="res-summary-row"><span className="key">Amount</span><span>{inr(sel.amount_due_paise)}</span></div><div className="res-summary-row"><span className="key">Pay before</span><span>{fdate(sel.reserved_until)}</span></div></div>
       {(() => { const v = ((settings.rows as Row[])[0]?.value ?? {}) as Row; const L: [string, string][] = [['account_name', 'Account name'], ['bank_name', 'Bank'], ['account_number', 'Account number'], ['ifsc', 'IFSC'], ['upi_id', 'UPI ID']]
         const have = L.filter(([k]) => v[k]); return have.length ? have.map(([k, l]) => <div className="info-row" key={k}><span className="info-key">{l}</span><span className="info-val mono">{String(v[k])}</span></div>) : <div className="form-hint">Payment details are not set up yet — please contact support.</div> })()}

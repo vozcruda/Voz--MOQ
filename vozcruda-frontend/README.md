@@ -65,3 +65,12 @@ Run `backend/012_supplier_insights_requirements_support.sql` (after 011).
 - **Market insights** (supplier → Market Insights): `supplier_market_insights(days)` and `supplier_price_benchmark(...)`. Anonymous aggregates by product group (category + material + GSM band + fit). A group appears only with ≥3 batches from ≥2 manufacturers; no supplier names; prices shown are catalogue (listed) prices only — never what buyers pay — as 25th/median/75th percentile.
 - **Requirements** (supplier → Requirements, admin → Requirements): supplier posts → admin reviews/edits → publishes → every approved manufacturer is notified and can respond with price / lead time / min order. Poster identity is never shown to other suppliers (`requirement_board` view). The poster only sees responses admin explicitly shares, anonymised (`requirement_shared_responses`). Admins can also post directly.
 - **Support chat** (supplier & buyer → Support / Help & Support, admin → Support Inbox): shared inbox, any admin can reply, unread badge, notifications both ways, resolve/reopen, "Take" a conversation.
+
+## 013 — PayU online payments
+Run `backend/013_payu_gateway.sql`, then deploy the two Edge Functions and set secrets:
+```
+supabase secrets set PAYU_KEY=... PAYU_SALT=... PAYU_ENV=test APP_URL=https://moqless.vozcruda.com
+supabase functions deploy payu-initiate
+supabase functions deploy payu-callback --no-verify-jwt
+```
+Buyer → Payments → **Pay now** opens PayU. The reservation is marked paid only after `payu-callback` verifies PayU's signature and confirms the status and amount with PayU's `verify_payment` API; the database then settles it once per transaction. Admin → **Online Payments** lists every attempt. Late or mismatched payments are flagged for refund, never counted. Bank transfer + manual "Mark paid" remain as a fallback.

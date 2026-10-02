@@ -15,6 +15,7 @@ import { Notifications } from './pages/Notifications'
 import { MarketInsights } from './pages/Insights'
 import { SupplierRequirements, AdminRequirements } from './pages/Requirements'
 import { Support, SupportInbox } from './pages/Support'
+import { OnlinePayments } from './pages/Gateway'
 import { supabase } from './supabase'
 import { useQuery, Modal } from './ui/kit'
 
@@ -23,7 +24,7 @@ const NAV: Record<Exclude<Role, 'none'>, { home: string; label: string; groups: 
   admin: { home: 'dashboard', label: 'Admin', groups: [
     ['Overview', [{ id: 'dashboard', icon: '⬛', label: 'Dashboard' }, { id: 'notifications', icon: '🔔', label: 'Notifications' }]],
     ['Catalog', [{ id: 'products', icon: '📦', label: 'Products' }, { id: 'batches', icon: '📊', label: 'Batches' }]],
-    ['Operations', [{ id: 'reservations', icon: '📋', label: 'Reservations' }, { id: 'purchase-orders', icon: '🧾', label: 'Purchase Orders' }, { id: 'orders', icon: '🚚', label: 'Orders' }, { id: 'disputes', icon: '⚖️', label: 'Disputes' }, { id: 'requirements', icon: '📌', label: 'Requirements' }, { id: 'support', icon: '💬', label: 'Support Inbox' }]],
+    ['Operations', [{ id: 'reservations', icon: '📋', label: 'Reservations' }, { id: 'purchase-orders', icon: '🧾', label: 'Purchase Orders' }, { id: 'orders', icon: '🚚', label: 'Orders' }, { id: 'disputes', icon: '⚖️', label: 'Disputes' }, { id: 'gateway', icon: '💳', label: 'Online Payments' }, { id: 'requirements', icon: '📌', label: 'Requirements' }, { id: 'support', icon: '💬', label: 'Support Inbox' }]],
     ['Admin', [{ id: 'suppliers', icon: '🏭', label: 'Suppliers' }, { id: 'users', icon: '👤', label: 'Users' }, { id: 'settings', icon: '⚙️', label: 'Settings' }, { id: 'activity', icon: '🗂️', label: 'Activity Log' }]]] },
   buyer: { home: 'dashboard', label: 'Buyer', groups: [
     ['Overview', [{ id: 'dashboard', icon: '⬛', label: 'Dashboard' }, { id: 'notifications', icon: '🔔', label: 'Notifications' }]],
@@ -36,12 +37,12 @@ const NAV: Record<Exclude<Role, 'none'>, { home: string; label: string; groups: 
     ['Help', [{ id: 'support', icon: '💬', label: 'Support' }]]] },
 }
 const TITLES: Record<string, string> = { dashboard: 'Dashboard', products: 'Products', batches: 'Aggregation Batches', browse: 'Browse Batches', catalogue: 'Product Catalogue', reservations: 'Reservations',
-  'purchase-orders': 'Purchase Orders', suppliers: 'Suppliers', users: 'Users', disputes: 'Disputes', settings: 'Settings', activity: 'Activity Log', team: 'Admin Team', notifications: 'Notifications', insights: 'Market Insights', requirements: 'Requirements', support: 'Support', orders: 'Orders', payments: 'Payments', pool: 'Batch Detail' }
+  'purchase-orders': 'Purchase Orders', suppliers: 'Suppliers', users: 'Users', disputes: 'Disputes', settings: 'Settings', activity: 'Activity Log', team: 'Admin Team', notifications: 'Notifications', insights: 'Market Insights', requirements: 'Requirements', support: 'Support', gateway: 'Online Payments', orders: 'Orders', payments: 'Payments', pool: 'Batch Detail' }
 
 function Shell() {
   const { role, name, email, signOut, can, canGrant, isSuper } = useAuth()
   const r = role as Exclude<Role, 'none'>; const nav = NAV[r]
-  const [page, setPage] = useState('dashboard'); const [pool, setPool] = useState<string | null>(null); const [back, setBack] = useState('dashboard')
+  const [page, setPage] = useState(() => (r === 'buyer' && new URLSearchParams(window.location.search).has('payment') ? 'payments' : 'dashboard')); const [pool, setPool] = useState<string | null>(null); const [back, setBack] = useState('dashboard')
   const unread = useQuery(() => supabase.from('notifications').select('id').is('read_at', null), [page])
   useEffect(() => { const f = () => unread.reload(); window.addEventListener('vc:notif', f); return () => window.removeEventListener('vc:notif', f) }, [unread.reload])
   const [chatUnread, setChatUnread] = useState(0)
@@ -76,6 +77,7 @@ function Shell() {
   else if (page === 'insights') view = <MarketInsights />
   else if (page === 'requirements') view = admin ? <AdminRequirements /> : <SupplierRequirements />
   else if (page === 'support') view = admin ? <SupportInbox /> : <Support />
+  else if (page === 'gateway') view = <OnlinePayments />
   else if (page === 'activity') view = <ActivityLog />
   else if (page === 'settings') view = <Settings />
   else if (page === 'team') view = <AdminTeam />
