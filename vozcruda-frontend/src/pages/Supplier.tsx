@@ -14,6 +14,9 @@ export function SupplierDashboard({ go }: { go: (p: string) => void }) {
       <Stat label="Pending Production" value={o.filter(x => ['sent', 'accepted'].includes(x.status)).length} sub="POs awaiting action" />
       <Stat label="Confirmed Orders" value={inr(o.filter(x => !['cancelled', 'rejected'].includes(x.status)).reduce((s, x) => s + Number(x.total_cost_paise), 0))} />
       <Stat label="In Production" value={`${o.filter(x => x.status === 'in_production').reduce((s, x) => s + x.total_qty, 0)} pcs`} /></Stats>
+    <div className="info-card" style={{ marginBottom: 20 }}><div className="info-card-body row" style={{ justifyContent: 'space-between' }}>
+      <span>📈 See which products are filling fastest and what similar items sell for.</span>
+      <span className="row"><button className="btn btn-outline btn-sm" onClick={() => go('insights')}>Market insights</button><button className="btn btn-outline btn-sm" onClick={() => go('requirements')}>Requirements</button></span></div></div>
     <Section title="My Products" action={<button className="btn btn-primary btn-sm" onClick={() => go('products')}>Manage products</button>} />
     <Err m={prods.err} />
     <Card flush>{prods.loading ? <Loading /> : !p.length ? <Empty title="No products yet" /> : <table><thead><tr><th>Product</th><th>Status</th><th>Price</th></tr></thead><tbody>

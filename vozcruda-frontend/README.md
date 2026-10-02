@@ -56,3 +56,12 @@ Run `backend/009_ops_settings_disputes_logs.sql` in the Supabase SQL editor (aft
 
 ## 010 — batch photos + PO details
 Run `backend/010_batch_images_po_details.sql`. Adds `product_id` to `open_pools` (buyers now see photos and size/colour options on batches) and a `pool_images` view. Purchase Orders → Details shows the full PO (photo, cost, size×colour matrix, spec, buyer orders, history).
+
+## 011 — notification controls
+Run `backend/011_notification_controls.sql`: adds `dismissed_at`, `mark_all_notifications_read()` and `dismiss_notifications()`.
+
+## 012 — supplier insights, requirements board, support chat
+Run `backend/012_supplier_insights_requirements_support.sql` (after 011).
+- **Market insights** (supplier → Market Insights): `supplier_market_insights(days)` and `supplier_price_benchmark(...)`. Anonymous aggregates by product group (category + material + GSM band + fit). A group appears only with ≥3 batches from ≥2 manufacturers; no supplier names; prices shown are catalogue (listed) prices only — never what buyers pay — as 25th/median/75th percentile.
+- **Requirements** (supplier → Requirements, admin → Requirements): supplier posts → admin reviews/edits → publishes → every approved manufacturer is notified and can respond with price / lead time / min order. Poster identity is never shown to other suppliers (`requirement_board` view). The poster only sees responses admin explicitly shares, anonymised (`requirement_shared_responses`). Admins can also post directly.
+- **Support chat** (supplier & buyer → Support / Help & Support, admin → Support Inbox): shared inbox, any admin can reply, unread badge, notifications both ways, resolve/reopen, "Take" a conversation.

@@ -12,6 +12,9 @@ import { Settings } from './pages/Settings'
 import { ActivityLog } from './pages/ActivityLog'
 import { AdminTeam } from './pages/AdminTeam'
 import { Notifications } from './pages/Notifications'
+import { MarketInsights } from './pages/Insights'
+import { SupplierRequirements, AdminRequirements } from './pages/Requirements'
+import { Support, SupportInbox } from './pages/Support'
 import { supabase } from './supabase'
 import { useQuery, Modal } from './ui/kit'
 
@@ -20,24 +23,33 @@ const NAV: Record<Exclude<Role, 'none'>, { home: string; label: string; groups: 
   admin: { home: 'dashboard', label: 'Admin', groups: [
     ['Overview', [{ id: 'dashboard', icon: '⬛', label: 'Dashboard' }, { id: 'notifications', icon: '🔔', label: 'Notifications' }]],
     ['Catalog', [{ id: 'products', icon: '📦', label: 'Products' }, { id: 'batches', icon: '📊', label: 'Batches' }]],
-    ['Operations', [{ id: 'reservations', icon: '📋', label: 'Reservations' }, { id: 'purchase-orders', icon: '🧾', label: 'Purchase Orders' }, { id: 'orders', icon: '🚚', label: 'Orders' }, { id: 'disputes', icon: '⚖️', label: 'Disputes' }]],
+    ['Operations', [{ id: 'reservations', icon: '📋', label: 'Reservations' }, { id: 'purchase-orders', icon: '🧾', label: 'Purchase Orders' }, { id: 'orders', icon: '🚚', label: 'Orders' }, { id: 'disputes', icon: '⚖️', label: 'Disputes' }, { id: 'requirements', icon: '📌', label: 'Requirements' }, { id: 'support', icon: '💬', label: 'Support Inbox' }]],
     ['Admin', [{ id: 'suppliers', icon: '🏭', label: 'Suppliers' }, { id: 'users', icon: '👤', label: 'Users' }, { id: 'settings', icon: '⚙️', label: 'Settings' }, { id: 'activity', icon: '🗂️', label: 'Activity Log' }]]] },
   buyer: { home: 'dashboard', label: 'Buyer', groups: [
     ['Overview', [{ id: 'dashboard', icon: '⬛', label: 'Dashboard' }, { id: 'notifications', icon: '🔔', label: 'Notifications' }]],
     ['Marketplace', [{ id: 'browse', icon: '🛍️', label: 'Browse Batches' }, { id: 'catalogue', icon: '👕', label: 'Product Catalogue' }]],
-    ['My Account', [{ id: 'orders', icon: '📋', label: 'My Orders' }, { id: 'payments', icon: '💳', label: 'Payments' }, { id: 'disputes', icon: '⚖️', label: 'Disputes' }]]] },
+    ['My Account', [{ id: 'orders', icon: '📋', label: 'My Orders' }, { id: 'payments', icon: '💳', label: 'Payments' }, { id: 'disputes', icon: '⚖️', label: 'Disputes' }, { id: 'support', icon: '💬', label: 'Help & Support' }]]] },
   supplier: { home: 'dashboard', label: 'Supplier', groups: [
     ['Overview', [{ id: 'dashboard', icon: '⬛', label: 'Dashboard' }, { id: 'notifications', icon: '🔔', label: 'Notifications' }]],
-    ['Products', [{ id: 'products', icon: '📦', label: 'My Products' }, { id: 'purchase-orders', icon: '🏭', label: 'Production Queue' }]]] },
+    ['Products', [{ id: 'products', icon: '📦', label: 'My Products' }, { id: 'purchase-orders', icon: '🏭', label: 'Production Queue' }]],
+    ['Grow', [{ id: 'insights', icon: '📈', label: 'Market Insights' }, { id: 'requirements', icon: '📌', label: 'Requirements' }]],
+    ['Help', [{ id: 'support', icon: '💬', label: 'Support' }]]] },
 }
 const TITLES: Record<string, string> = { dashboard: 'Dashboard', products: 'Products', batches: 'Aggregation Batches', browse: 'Browse Batches', catalogue: 'Product Catalogue', reservations: 'Reservations',
-  'purchase-orders': 'Purchase Orders', suppliers: 'Suppliers', users: 'Users', disputes: 'Disputes', settings: 'Settings', activity: 'Activity Log', team: 'Admin Team', notifications: 'Notifications', orders: 'Orders', payments: 'Payments', pool: 'Batch Detail' }
+  'purchase-orders': 'Purchase Orders', suppliers: 'Suppliers', users: 'Users', disputes: 'Disputes', settings: 'Settings', activity: 'Activity Log', team: 'Admin Team', notifications: 'Notifications', insights: 'Market Insights', requirements: 'Requirements', support: 'Support', orders: 'Orders', payments: 'Payments', pool: 'Batch Detail' }
 
 function Shell() {
   const { role, name, email, signOut, can, canGrant, isSuper } = useAuth()
   const r = role as Exclude<Role, 'none'>; const nav = NAV[r]
   const [page, setPage] = useState('dashboard'); const [pool, setPool] = useState<string | null>(null); const [back, setBack] = useState('dashboard')
   const unread = useQuery(() => supabase.from('notifications').select('id').is('read_at', null), [page])
+  useEffect(() => { const f = () => unread.reload(); window.addEventListener('vc:notif', f); return () => window.removeEventListener('vc:notif', f) }, [unread.reload])
+  const [chatUnread, setChatUnread] = useState(0)
+  useEffect(() => {
+    const f = () => { supabase.rpc('support_unread_count').then(({ data }) => setChatUnread(typeof data === 'number' ? data : 0)) }
+    f(); window.addEventListener('vc:support', f); const i = setInterval(f, 30000)
+    return () => { window.removeEventListener('vc:support', f); clearInterval(i) }
+  }, [page])
   const go = (p: string) => { setPool(null); setPage(p); setMenu(false) }
   const openPool = (id: string) => { setBack(page); setPool(id); setPage('pool'); setMenu(false) }
   const groups = nav.groups.map(([g, items]) => [g, g === 'Admin' && canGrant ? [...items, { id: 'team', icon: '🛡️', label: 'Admin Team' }] : items] as [string, Item[]])
@@ -61,6 +73,9 @@ function Shell() {
   else if (page === 'users') view = <Users />
   else if (page === 'orders') view = admin ? <Orders /> : <MyOrders open={openPool} />
   else if (page === 'disputes') view = admin ? <Disputes /> : <BuyerDisputes />
+  else if (page === 'insights') view = <MarketInsights />
+  else if (page === 'requirements') view = admin ? <AdminRequirements /> : <SupplierRequirements />
+  else if (page === 'support') view = admin ? <SupportInbox /> : <Support />
   else if (page === 'activity') view = <ActivityLog />
   else if (page === 'settings') view = <Settings />
   else if (page === 'team') view = <AdminTeam />
@@ -76,7 +91,7 @@ function Shell() {
         <nav className="sidebar-nav">
           {groups.map(([g, items]) => <div key={g}><div className="nav-section-label">{g}</div>
             {items.map(i => <button key={i.id} className={'nav-item' + (page === i.id || (page === 'pool' && back === i.id) ? ' active' : '')} onClick={() => go(i.id)}>
-              <span className="nav-icon">{i.icon}</span> {i.label}{i.id === 'notifications' && unread.rows.length > 0 && <span className="nav-badge">{unread.rows.length}</span>}</button>)}</div>)}
+              <span className="nav-icon">{i.icon}</span> {i.label}{i.id === 'notifications' && unread.rows.length > 0 && <span className="nav-badge">{unread.rows.length}</span>}{i.id === 'support' && chatUnread > 0 && <span className="nav-badge">{chatUnread}</span>}</button>)}</div>)}
         </nav>
         <div className="sidebar-user"><div className="user-avatar">{initials || 'VC'}</div>
           <div className="user-info"><div className="user-name">{name}</div><div className="user-email">{email}</div></div>
