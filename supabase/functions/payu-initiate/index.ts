@@ -3,7 +3,7 @@
 // this function only signs it with the PayU salt, which never leaves the server.
 // Deploy:  supabase functions deploy payu-initiate        (Verify JWT stays ON)
 // Secrets: PAYU_KEY, PAYU_SALT, PAYU_ENV (test|live)
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',

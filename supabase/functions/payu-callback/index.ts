@@ -5,7 +5,7 @@
 // and only then (3) let the database settle the reservation.
 // Deploy:  supabase functions deploy payu-callback --no-verify-jwt
 // Secrets: PAYU_KEY, PAYU_SALT, PAYU_ENV (test|live), APP_URL (e.g. https://moqless.vozcruda.com)
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 async function sha512(s: string) {
   const buf = await crypto.subtle.digest('SHA-512', new TextEncoder().encode(s))
