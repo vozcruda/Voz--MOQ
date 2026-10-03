@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase, inr, fdate, daysLeft, rpc, pubUrl, type Row } from '../supabase'
 import { useAuth } from '../auth'
+import { useGuest } from '../guest'
 import { useQuery, Err, Status, Chip, Progress, pct, Empty, Loading, Modal, Field, Section, Card } from '../ui/kit'
 
 export interface Pool { id: string; no: string; title: string; moq: number; target: number; paid: number; reserved: number
@@ -21,10 +22,11 @@ export const priceAt = (tiers: Row[], qty: number): number | null => {
 }
 
 export function usePools(all: boolean) {
+  const { guest } = useGuest()   // visitors who are not signed in read the guest views (no supplier identity)
   const pools = useQuery(() => all ? supabase.from('moq_pools').select('*').order('created_at', { ascending: false })
-    : supabase.from('open_pools').select('*').order('deadline_at'), [all])
-  const tiers = useQuery(() => supabase.from(all ? 'pool_price_tiers' : 'open_pool_price_tiers').select('*'), [all])
-  const pics = useQuery(() => supabase.from('pool_images').select('pool_id, position, object_key'), [all])
+    : supabase.from(guest ? 'guest_pools' : 'open_pools').select('*').order('deadline_at'), [all, guest])
+  const tiers = useQuery(() => supabase.from(all ? 'pool_price_tiers' : guest ? 'guest_pool_price_tiers' : 'open_pool_price_tiers').select('*'), [all, guest])
+  const pics = useQuery(() => supabase.from(guest ? 'guest_pool_images' : 'pool_images').select('pool_id, position, object_key'), [all, guest])
   const byPool = (id: string) => tiers.rows.filter((t: Row) => t.pool_id === id)
   const cover = (id: string): string | undefined => { const r = (pics.rows as Row[]).filter(x => x.pool_id === id).sort((a, b) => a.position - b.position)[0]; return r ? pubUrl(r.object_key) : undefined }
   return { pools: (pools.rows as Row[]).map(normPool), byPool, cover, err: pools.err, loading: pools.loading, reload: pools.reload }
@@ -76,13 +78,13 @@ export function PoolsBrowse({ admin, onOpen }: { admin: boolean; onOpen: (id: st
   </>)
 }
 
-export function PoolDetail({ id, onBack, goPage }: { id: string; onBack: () => void; goPage: (p: string) => void }) {
-  const { role, org, can } = useAuth(); const admin = role === 'admin'
-  const [join, setJoin] = useState(false); const [msg, setMsg] = useState(''); const [bad, setBad] = useState(false)
-  const pr = useQuery(() => admin ? supabase.from('moq_pools').select('*').eq('id', id) : supabase.from('open_pools').select('*').eq('pool_id', id), [id, admin])
-  const tr = useQuery(() => supabase.from(admin ? 'pool_price_tiers' : 'open_pool_price_tiers').select('*').eq('pool_id', id).order('min_total_qty'), [id, admin])
-  const cm = useQuery(() => supabase.from('pool_commitments').select('*, buyer:buyer_org_id(legal_name, trade_name), pool_commitment_items(size, color, qty)').eq('pool_id', id).order('created_at', { ascending: false }), [id])
-  const pics = useQuery(() => supabase.from('pool_images').select('position, object_key, alt_text').eq('pool_id', id).order('position'), [id])
+export function PoolDetail({ id, onBack, goPage, autoJoin }: { id: string; onBack: () => void; goPage: (p: string) => void; autoJoin?: boolean }) {
+  const { role, org, can } = useAuth(); const admin = role === 'admin'; const { guest, requireAuth } = useGuest()
+  const [join, setJoin] = useState(!!autoJoin); const [msg, setMsg] = useState(''); const [bad, setBad] = useState(false)
+  const pr = useQuery(() => admin ? supabase.from('moq_pools').select('*').eq('id', id) : supabase.from(guest ? 'guest_pools' : 'open_pools').select('*').eq('pool_id', id), [id, admin, guest])
+  const tr = useQuery(() => supabase.from(admin ? 'pool_price_tiers' : guest ? 'guest_pool_price_tiers' : 'open_pool_price_tiers').select('*').eq('pool_id', id).order('min_total_qty'), [id, admin, guest])
+  const cm = useQuery(() => guest ? Promise.resolve({ data: [], error: null }) : supabase.from('pool_commitments').select('*, buyer:buyer_org_id(legal_name, trade_name), pool_commitment_items(size, color, qty)').eq('pool_id', id).order('created_at', { ascending: false }), [id, guest])
+  const pics = useQuery(() => supabase.from(guest ? 'guest_pool_images' : 'pool_images').select('position, object_key, alt_text').eq('pool_id', id).order('position'), [id, guest])
   const [shot, setShot] = useState(0)
   const po = useQuery(() => admin ? supabase.from('purchase_orders').select('id, po_no, status').eq('pool_id', id) : Promise.resolve({ data: [], error: null }), [id, admin])
   if (pr.loading) return <Loading />
@@ -110,6 +112,8 @@ export function PoolDetail({ id, onBack, goPage }: { id: string; onBack: () => v
         {admin && <div className="hero-stat-item"><div className="hero-stat-label">Reserved (unpaid)</div><div className="hero-stat-value">{p.reserved}</div></div>}
       </div>
     </div>
+    {guest && ['open', 'moq_reached'].includes(p.status) && <div className="guest-cta"><button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => requireAuth({ page: 'pool', poolId: p.id, action: 'join' })}>Sign in to join this batch</button>
+          <p className="form-hint">No account yet? You’ll be able to create one in a minute and come straight back here.</p></div>}
     {msg && <div className={bad ? 'err' : 'ok'}>{msg}</div>}
     <div className="two-col">
       <div className="col-main">

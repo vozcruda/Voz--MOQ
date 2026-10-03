@@ -7,7 +7,7 @@ const PENDING = 'vc_pending_signup'
 const save = (v: object) => { try { localStorage.setItem(PENDING, JSON.stringify(v)) } catch { /* ignore */ } }
 const load = (): { type?: string; business?: string; gstin?: string } => { try { return JSON.parse(localStorage.getItem(PENDING) ?? '{}') } catch { return {} } }
 
-function Wrap({ quote, children, features }: { quote: ReactNode; children: ReactNode; features?: boolean }) {
+function Wrap({ quote, children, features, onBack }: { quote: ReactNode; children: ReactNode; features?: boolean; onBack?: () => void }) {
   return (
     <div className="login-wrap">
       <div className="login-left"><div>
@@ -17,13 +17,13 @@ function Wrap({ quote, children, features }: { quote: ReactNode; children: React
           {[['🏭', 'Factory-Direct Pricing', "Access MOQ prices that solo buyers can't reach"], ['🤝', 'Group Aggregation', 'Your order pools with other buyers automatically'], ['📦', 'Real-Time Progress', 'Track exactly when your batch is ready to close']]
             .map(([i, t, d]) => <div className="login-feature" key={t}><div className="login-feature-icon">{i}</div><div><div className="login-feature-title">{t}</div><div className="login-feature-desc">{d}</div></div></div>)}</div>}
       </div><div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>© {new Date().getFullYear()} Voz Cruda LLP</div></div>
-      <div className="login-right"><img className="login-logo-small" src="/brand/logo-lockup-light.png" alt="MoqLess" width="640" height="411" />{children}</div>
+       <div className="login-right">{onBack && <button className="link back-browse" onClick={onBack}>← Keep browsing</button>}<img className="login-logo-small" src="/brand/logo-lockup-light.png" alt="MoqLess" width="640" height="411" />{children}</div>
     </div>
   )
 }
 
-export function AuthScreen() {
-  const [mode, setMode] = useState<'in' | 'up' | 'forgot'>('in')
+export function AuthScreen({ initialMode = 'in', onBack }: { initialMode?: 'in' | 'up'; onBack?: () => void } = {}) {
+  const [mode, setMode] = useState<'in' | 'up' | 'forgot'>(initialMode)
   const [f, setF] = useState({ email: '', pw: '', pw2: '', name: '', phone: '', business: '', gstin: '', type: 'buyer' })
   const [err, setErr] = useState(''); const [info, setInfo] = useState(''); const [busy, setBusy] = useState(false); const [needConfirm, setNeedConfirm] = useState(false); const [sent, setSent] = useState('')
   const up = (k: string, v: string) => setF({ ...f, [k]: v })
@@ -80,7 +80,7 @@ export function AuthScreen() {
     </Wrap>
   )
   return (
-    <Wrap features={mode === 'in'} quote={mode === 'in' ? <>"Small orders,<br />collective power."</> : <>"Join the collective.<br />Buy better."</>}>
+    <Wrap onBack={onBack} features={mode === 'in'} quote={mode === 'in' ? <>"Small orders,<br />collective power."</> : <>"Join the collective.<br />Buy better."</>}>
       <div className="login-card" style={{ width: mode === 'up' ? 460 : 420 }}>
         <div className="login-title">{mode === 'in' ? 'Welcome back' : 'Create account'}</div>
         <div className="login-sub">{mode === 'in' ? 'Sign in to your Voz Cruda account' : 'Start buying factory-direct today'}</div>

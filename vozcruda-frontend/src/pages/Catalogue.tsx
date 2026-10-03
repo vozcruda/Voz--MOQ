@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { supabase, rpc, inr, type Row } from '../supabase'
 import { useAuth } from '../auth'
+import { useGuest } from '../guest'
 import { useQuery, Err, Status, Chip, Empty, Loading, Modal, Field, Card } from '../ui/kit'
 import { levelLabel } from './Pools'
 
@@ -34,17 +35,17 @@ async function prepare(file: File): Promise<{ blob: Blob; ext: string; type: str
 }
 
 export function Catalogue({ mode }: { mode: 'buyer' | 'admin' | 'supplier' }) {
-  const { org, can } = useAuth()
+  const { org, can } = useAuth(); const { guest } = useGuest()
   const [q, setQ] = useState(''); const [cat, setCat] = useState(''); const [st, setSt] = useState('')
   const [edit, setEdit] = useState<Row | 'new' | null>(null)
   const cats = useQuery(() => supabase.from('categories').select('id,name').eq('is_active', true).order('sort_order'), [])
   const mats = useQuery(() => supabase.from('materials').select('id,name').eq('is_active', true).order('name'), [])
   const prods = useQuery(() => {
-    if (mode === 'buyer') return supabase.from('public_products').select('*').order('created_at', { ascending: false })
+    if (mode === 'buyer') return supabase.from(guest ? 'guest_products' : 'public_products').select('*').order('created_at', { ascending: false })
     let b = supabase.from('products').select('*, categories(name), price_tiers(min_qty, unit_price_paise), organizations(legal_name, trade_name), product_images(id, position, files(object_key)), product_variants(size, color, is_active)').is('deleted_at', null).order('created_at', { ascending: false })
     if (mode === 'supplier' && org) b = b.eq('organization_id', org.id)
     return b
-  }, [mode, org?.id])
+  }, [mode, org?.id, guest])
   const pics = useQuery(() => mode === 'buyer' ? supabase.from('public_product_images').select('product_id, position, bucket, object_key').order('position') : Promise.resolve({ data: [], error: null }), [mode])
   const cover = (id: string) => { const r = (pics.rows as Row[]).find(x => x.product_id === id); return r ? imgUrl(r.object_key) : null }
   const canManage = (mode === 'supplier') || (mode === 'admin' && can('catalogue'))
@@ -62,7 +63,7 @@ export function Catalogue({ mode }: { mode: 'buyer' | 'admin' | 'supplier' }) {
     {prods.loading ? <Loading /> : !rows.length ? <Empty icon="📦" title="No products" desc={canManage ? 'Add the first product.' : undefined} /> :
       mode === 'buyer' ? <div className="products-grid">{rows.map(p => <div className="product-card" key={p.id}><div className="product-image">{cover(p.id) ? <img src={cover(p.id)!} alt={p.title} loading="lazy" /> : <span className="product-image-emoji">👕</span>}</div>
         <div className="product-body"><div className="product-category">{p.category_name ?? 'Product'}</div><div className="product-title">{p.title}</div>
-          <div className="product-supplier">{p.display_name} · {levelLabel(p.verification_level)}</div>
+          <div className="product-supplier">{p.display_name ? p.display_name + ' · ' + levelLabel(p.verification_level) : levelLabel(p.verification_level) + ' supplier'}</div>
           <div className="row">{p.gsm && <Chip>{p.gsm} GSM</Chip>}{p.material_name && <Chip>{p.material_name}</Chip>}{p.min_moq && <Chip c="orange">MOQ {p.min_moq}</Chip>}{p.lead_time_days && <Chip c="blue">{p.lead_time_days}d lead</Chip>}{p.sample_available && <Chip c="green">Sample</Chip>}</div></div></div>)}</div> :
       <Card flush><table><thead><tr><th>Product</th>{mode === 'admin' && <th>Supplier</th>}<th>Category</th><th>MOQ</th><th>Price</th><th>Status</th><th></th></tr></thead><tbody>
         {rows.map(p => <tr key={p.id}><td className="row" style={{ flexWrap: 'nowrap' }}><div className="thumb">{firstImage(p) ? <img src={firstImage(p)!} alt="" /> : <span>👕</span>}</div><div><div className="td-strong">{p.title}</div>{p.rejected_reason && <div className="td-muted">Rejected: {p.rejected_reason}</div>}</div></td>

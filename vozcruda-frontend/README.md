@@ -74,3 +74,6 @@ supabase functions deploy payu-initiate
 supabase functions deploy payu-callback --no-verify-jwt
 ```
 Buyer → Payments → **Pay now** opens PayU. The reservation is marked paid only after `payu-callback` verifies PayU's signature and confirms the status and amount with PayU's `verify_payment` API; the database then settles it once per transaction. Admin → **Online Payments** lists every attempt. Late or mismatched payments are flagged for refund, never counted. Bank transfer + manual "Mark paid" remain as a fallback.
+
+## 014 — guest browsing
+Run `backend/014_guest_browsing.sql`. Visitors who are not signed in can browse open batches (with prices and photos) and the product catalogue; supplier names/ids are not exposed (`guest_*` views; the old anon access to `open_pools` / `public_products` is revoked). Joining, reserving, paying and everything else still needs a signed-in buyer. When a guest taps "Sign in to join this batch" the intent is saved (1 hour) and the buyer lands back on that batch with the join form open after signing in or onboarding. Suppliers and admins sign in as before ("Manufacturer or admin? Sign in" in the guest sidebar).

@@ -1075,3 +1075,14 @@ th { white-space: nowrap; }
 /* ---- 013: online payment banner ---- */
 .pay-banner{display:flex;gap:0.75rem;justify-content:space-between;align-items:flex-start;padding:0.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem;font-size:0.9375rem;border:1px solid}
 .pay-banner.ok{background:#eaf6ee;border-color:#b9dfc5;color:#1f5a35}.pay-banner.warn{background:#fff6e0;border-color:#ecd493;color:#7a5a07}.pay-banner.bad{background:#fdecea;border-color:#f0b9b2;color:#8a2a1c}
+
+/* ---- 014: guest browsing ---- */
+.guest-side{margin-top:auto;padding:1rem;border-top:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:0.625rem}
+.guest-side-title{font-weight:700;color:#fff;font-size:0.9375rem}.guest-side-sub{font-size:0.8125rem;color:rgba(255,255,255,.6);line-height:1.4}
+.guest-signin{width:100%;justify-content:center;color:#fff;border-color:rgba(255,255,255,.3)}
+.guest-mfr{font-size:0.8125rem;text-align:left;color:rgba(255,255,255,.6)}
+.guest-cta{display:flex;flex-direction:column;gap:0.5rem}
+.back-browse{position:absolute;top:1rem;left:1rem;font-size:0.875rem}
+.login-right{position:relative}
+@media (max-width:760px){.topbar-actions .btn-outline{display:none}}
+.guest-cta{margin:0 0 1rem}

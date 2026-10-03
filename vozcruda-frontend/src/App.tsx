@@ -16,6 +16,7 @@ import { MarketInsights } from './pages/Insights'
 import { SupplierRequirements, AdminRequirements } from './pages/Requirements'
 import { Support, SupportInbox } from './pages/Support'
 import { OnlinePayments } from './pages/Gateway'
+import { GuestCtx, saveIntent, takeIntent, type Intent } from './guest'
 import { supabase } from './supabase'
 import { useQuery, Modal } from './ui/kit'
 
@@ -42,7 +43,9 @@ const TITLES: Record<string, string> = { dashboard: 'Dashboard', products: 'Prod
 function Shell() {
   const { role, name, email, signOut, can, canGrant, isSuper } = useAuth()
   const r = role as Exclude<Role, 'none'>; const nav = NAV[r]
-  const [page, setPage] = useState(() => (r === 'buyer' && new URLSearchParams(window.location.search).has('payment') ? 'payments' : 'dashboard')); const [pool, setPool] = useState<string | null>(null); const [back, setBack] = useState('dashboard')
+  const [intent] = useState(() => (r === 'buyer' ? takeIntent() : null))   // picks up "I was about to join this batch" from before sign-in
+  const [autoJoin, setAutoJoin] = useState<string | null>(intent?.action === 'join' ? intent.poolId : null)
+  const [page, setPage] = useState(() => (intent ? 'pool' : r === 'buyer' && new URLSearchParams(window.location.search).has('payment') ? 'payments' : 'dashboard')); const [pool, setPool] = useState<string | null>(intent?.poolId ?? null); const [back, setBack] = useState(intent ? 'browse' : 'dashboard')
   const unread = useQuery(() => supabase.from('notifications').select('id').is('read_at', null), [page])
   useEffect(() => { const f = () => unread.reload(); window.addEventListener('vc:notif', f); return () => window.removeEventListener('vc:notif', f) }, [unread.reload])
   const [chatUnread, setChatUnread] = useState(0)
@@ -51,7 +54,7 @@ function Shell() {
     f(); window.addEventListener('vc:support', f); const i = setInterval(f, 30000)
     return () => { window.removeEventListener('vc:support', f); clearInterval(i) }
   }, [page])
-  const go = (p: string) => { setPool(null); setPage(p); setMenu(false) }
+  const go = (p: string) => { setPool(null); setAutoJoin(null); setPage(p); setMenu(false) }
   const openPool = (id: string) => { setBack(page); setPool(id); setPage('pool'); setMenu(false) }
   const groups = nav.groups.map(([g, items]) => [g, g === 'Admin' && canGrant ? [...items, { id: 'team', icon: '🛡️', label: 'Admin Team' }] : items] as [string, Item[]])
   const initials = (name || email).split(/[\s@]/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')
@@ -62,7 +65,7 @@ function Shell() {
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(false) }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k) }, [])
 
   let view = null
-  if (page === 'pool' && pool) view = <PoolDetail id={pool} onBack={() => go(back)} goPage={go} />
+  if (page === 'pool' && pool) view = <PoolDetail id={pool} onBack={() => go(back)} goPage={go} autoJoin={pool === autoJoin} />
   else if (page === 'dashboard') view = admin ? <AdminDashboard open={openPool} go={go} /> : r === 'buyer' ? <BuyerDashboard go={go} open={openPool} /> : <SupplierDashboard go={go} />
   else if (page === 'notifications') view = <Notifications />
   else if (page === 'products') view = <Catalogue mode={admin ? 'admin' : 'supplier'} />
@@ -111,11 +114,51 @@ function Shell() {
   )
 }
 
+/** Visitors who are not signed in can browse batches and the catalogue; they sign in only to act. */
+function GuestShell() {
+  const [page, setPage] = useState('browse'); const [pool, setPool] = useState<string | null>(null)
+  const [auth, setAuth] = useState<null | 'in' | 'up'>(null); const [menu, setMenu] = useState(false)
+  const requireAuth = (i?: Intent) => { if (i) saveIntent(i); setAuth('up'); setMenu(false) }
+  const go = (p: string) => { setPool(null); setPage(p); setMenu(false) }
+  if (auth) return <AuthScreen initialMode={auth} onBack={() => setAuth(null)} />
+  const title = page === 'pool' ? 'Batch Detail' : page === 'catalogue' ? 'Product Catalogue' : 'Browse Batches'
+  const items: Item[] = [{ id: 'browse', icon: '🛍️', label: 'Browse Batches' }, { id: 'catalogue', icon: '👕', label: 'Product Catalogue' }]
+  return (
+    <GuestCtx.Provider value={{ guest: true, requireAuth }}>
+      <div className="app">
+        <div className={'sidebar-backdrop' + (menu ? ' open' : '')} onClick={() => setMenu(false)} />
+        <div className={'sidebar' + (menu ? ' open' : '')}>
+          <button className="sidebar-close" aria-label="Close menu" onClick={() => setMenu(false)}>✕</button>
+          <div className="sidebar-brand"><img className="brand-logo" src="/brand/logo-lockup-dark.png" alt="MoqLess — Voz Cruda's MOQ Aggregation App" width="640" height="411" /></div>
+          <nav className="sidebar-nav"><div className="nav-section-label">Marketplace</div>
+            {items.map(i => <button key={i.id} className={'nav-item' + (page === i.id || (page === 'pool' && i.id === 'browse') ? ' active' : '')} onClick={() => go(i.id)}><span className="nav-icon">{i.icon}</span> {i.label}</button>)}</nav>
+          <div className="guest-side">
+            <div className="guest-side-title">Buy factory-direct, together</div>
+            <div className="guest-side-sub">Browse freely. Create a free account when you’re ready to join a batch.</div>
+            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setAuth('up')}>Create free account</button>
+            <button className="btn btn-outline guest-signin" onClick={() => setAuth('in')}>Sign in</button>
+            <button className="link guest-mfr" onClick={() => setAuth('in')}>Manufacturer or admin? Sign in →</button>
+          </div>
+        </div>
+        <div className="main">
+          <div className="topbar"><button className="menu-btn" aria-label="Open menu" onClick={() => setMenu(true)}>☰</button><div className="topbar-title">{title}</div>
+            <div className="topbar-actions"><button className="btn btn-outline btn-sm" onClick={() => setAuth('in')}>Sign in</button><button className="btn btn-primary btn-sm" onClick={() => setAuth('up')}>Join free</button></div></div>
+          <div className="page-content"><div className="page-inner">
+            {page === 'pool' && pool ? <PoolDetail id={pool} onBack={() => go('browse')} goPage={go} />
+              : page === 'catalogue' ? <Catalogue mode="buyer" />
+              : <PoolsBrowse admin={false} onOpen={id => { setPool(id); setPage('pool') }} />}
+          </div></div>
+        </div>
+      </div>
+    </GuestCtx.Provider>
+  )
+}
+
 function Gate() {
   const { ready, session, role, recovery } = useAuth()
   if (!ready) return <div className="root-loading">Loading…</div>
   if (session && recovery) return <ResetPassword />
-  if (!session) return <AuthScreen />
+  if (!session) return <GuestShell />
   if (role === 'none') return <Onboarding />
   return <Shell key={role} />
 }
