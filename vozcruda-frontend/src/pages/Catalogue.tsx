@@ -4,6 +4,7 @@ import { useAuth } from '../auth'
 import { useGuest } from '../guest'
 import { useQuery, Err, Status, Chip, Empty, Loading, Modal, Field, Card } from '../ui/kit'
 import { levelLabel } from './Pools'
+import { NoteDialog } from './Ops'
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Math.random().toString(36).slice(2, 6)
 
@@ -38,25 +39,28 @@ export function Catalogue({ mode }: { mode: 'buyer' | 'admin' | 'supplier' }) {
   const { org, can } = useAuth(); const { guest } = useGuest()
   const [q, setQ] = useState(''); const [cat, setCat] = useState(''); const [st, setSt] = useState('')
   const [edit, setEdit] = useState<Row | 'new' | null>(null)
+  const [rm, setRm] = useState<Row | null>(null); const [cascade, setCascade] = useState(false)
+  const showRemoved = mode === 'admin' && st === 'removed'
   const cats = useQuery(() => supabase.from('categories').select('id,name').eq('is_active', true).order('sort_order'), [])
   const mats = useQuery(() => supabase.from('materials').select('id,name').eq('is_active', true).order('name'), [])
   const prods = useQuery(() => {
     if (mode === 'buyer') return supabase.from(guest ? 'guest_products' : 'public_products').select('*').order('created_at', { ascending: false })
-    let b = supabase.from('products').select('*, categories(name), price_tiers(min_qty, unit_price_paise), organizations(legal_name, trade_name), product_images(id, position, files(object_key)), product_variants(size, color, is_active)').is('deleted_at', null).order('created_at', { ascending: false })
+    const base = supabase.from('products').select('*, categories(name), price_tiers(min_qty, unit_price_paise), organizations(legal_name, trade_name), product_images(id, position, files(object_key)), product_variants(size, color, is_active)')
+    let b = (showRemoved ? base.not('deleted_at', 'is', null) : base.is('deleted_at', null)).order('created_at', { ascending: false })
     if (mode === 'supplier' && org) b = b.eq('organization_id', org.id)
     return b
-  }, [mode, org?.id, guest])
+  }, [mode, org?.id, guest, showRemoved])
   const pics = useQuery(() => mode === 'buyer' ? supabase.from('public_product_images').select('product_id, position, bucket, object_key').order('position') : Promise.resolve({ data: [], error: null }), [mode])
   const cover = (id: string) => { const r = (pics.rows as Row[]).find(x => x.product_id === id); return r ? imgUrl(r.object_key) : null }
   const canManage = (mode === 'supplier') || (mode === 'admin' && can('catalogue'))
-  const rows = (prods.rows as Row[]).filter(p => p.title.toLowerCase().includes(q.toLowerCase()) && (!cat || p.category_id === cat) && (!st || p.status === st))
+  const rows = (prods.rows as Row[]).filter(p => p.title.toLowerCase().includes(q.toLowerCase()) && (!cat || p.category_id === cat) && (!st || showRemoved || p.status === st))
   const review = async (p: Row, status: string) => { const reason = status === 'rejected' ? prompt('Reason for rejection?') : null; if (status === 'rejected' && !reason) return; const e = await rpc('admin_review_product', { p_product: p.id, p_status: status, p_reason: reason }); if (e) alert(e); prods.reload() }
   const submit = async (p: Row) => { const { error } = await supabase.from('products').update({ status: 'pending' }).eq('id', p.id); if (error) alert(error.message); prods.reload() }
   return (<>
     <div className="filter-bar">
       <div className="search-input-wrap"><span className="search-icon">🔍</span><input className="search-input" placeholder="Search products…" value={q} onChange={e => setQ(e.target.value)} /></div>
       <select className="filter-select" value={cat} onChange={e => setCat(e.target.value)}><option value="">All Categories</option>{(cats.rows as Row[]).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-      {mode !== 'buyer' && <select className="filter-select" value={st} onChange={e => setSt(e.target.value)}><option value="">All Status</option>{['draft', 'pending', 'approved', 'rejected', 'archived'].map(s => <option key={s}>{s}</option>)}</select>}
+      {mode !== 'buyer' && <select className="filter-select" value={st} onChange={e => setSt(e.target.value)}><option value="">All Status</option>{['draft', 'pending', 'approved', 'rejected', 'archived'].map(s => <option key={s}>{s}</option>)}{mode === 'admin' && <option value="removed">🗑 Removed</option>}</select>}
       {canManage && <button className="btn btn-primary btn-sm" onClick={() => setEdit('new')}>+ Add Product</button>}
     </div>
     <Err m={prods.err} />
@@ -69,8 +73,12 @@ export function Catalogue({ mode }: { mode: 'buyer' | 'admin' | 'supplier' }) {
         {rows.map(p => <tr key={p.id}><td className="row" style={{ flexWrap: 'nowrap' }}><div className="thumb">{firstImage(p) ? <img src={firstImage(p)!} alt="" /> : <span>👕</span>}</div><div><div className="td-strong">{p.title}</div>{p.rejected_reason && <div className="td-muted">Rejected: {p.rejected_reason}</div>}</div></td>
           {mode === 'admin' && <td>{p.organizations?.trade_name || p.organizations?.legal_name}</td>}<td>{p.categories?.name ?? '—'}</td><td>{p.min_moq ?? '—'}</td>
           <td>{p.price_tiers?.length ? inr([...p.price_tiers].sort((a: Row, b: Row) => a.min_qty - b.min_qty)[0].unit_price_paise) : '—'}</td><td><Status s={p.status} /></td>
-          <td className="row">{canManage && <button className="btn btn-outline btn-sm" onClick={() => setEdit(p)}>✏️ Edit</button>}{mode === 'admin' && can('catalogue') && p.status === 'pending' && <><button className="btn btn-success btn-sm" onClick={() => review(p, 'approved')}>Approve</button><button className="btn btn-outline btn-sm" onClick={() => review(p, 'rejected')}>Reject</button></>}
+          <td className="row">{canManage && !showRemoved && <button className="btn btn-outline btn-sm" onClick={() => setEdit(p)}>✏️ Edit</button>}{canManage && !showRemoved && <button className="btn btn-outline btn-sm" style={{ color: 'var(--danger)' }} onClick={() => { setCascade(false); setRm(p) }}>🗑 Remove</button>}{showRemoved && can('catalogue') && <button className="btn btn-outline btn-sm" onClick={async () => { const e = await rpc('admin_restore_product', { p_product: p.id }); if (e) alert(e); prods.reload() }}>↩ Restore</button>}{mode === 'admin' && can('catalogue') && p.status === 'pending' && <><button className="btn btn-success btn-sm" onClick={() => review(p, 'approved')}>Approve</button><button className="btn btn-outline btn-sm" onClick={() => review(p, 'rejected')}>Reject</button></>}
             {mode === 'supplier' && ['draft', 'rejected'].includes(p.status) && <button className="btn btn-outline btn-sm" onClick={() => submit(p)}>Submit for review</button>}</td></tr>)}</tbody></table></Card>}
+    {rm && <NoteDialog title={`Remove “${rm.title}”`} sub="It disappears from the catalogue and can no longer be used for new batches. Past orders and history are kept." label={mode === 'admin' ? 'Reason (kept in the activity log)' : 'Reason (optional)'} confirm="Remove product" danger required={mode === 'admin'} onClose={() => setRm(null)}
+      extra={mode === 'admin' ? <label style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-start', cursor: 'pointer' }}><input type="checkbox" style={{ width: 'auto', marginTop: 4, flex: 'none' }} checked={cascade} onChange={e => setCascade(e.target.checked)} /><span>Also cancel and remove its live batches <span className="td-muted">(buyers who paid are queued for refund)</span></span></label>
+        : <p className="form-hint" style={{ marginTop: 0 }}>You can’t remove a product while it has a live batch.</p>}
+      onSubmit={async n => { const e = await rpc('remove_product', { p_product: rm.id, p_reason: n || null, p_cascade: mode === 'admin' && cascade }); if (!e) prods.reload(); return e }} />}
     {edit && (mode === 'admin' || org) && <ProductEditor admin={mode === 'admin'} orgId={org?.id ?? ''} product={edit === 'new' ? undefined : edit} cats={cats.rows as Row[]} mats={mats.rows as Row[]}
       onClose={() => setEdit(null)} onDone={() => { setEdit(null); prods.reload() }} />}
   </>)

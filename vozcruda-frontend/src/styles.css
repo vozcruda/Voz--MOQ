@@ -1087,3 +1087,6 @@ th { white-space: nowrap; }
 .login-right{position:relative}
 @media (max-width:760px){.topbar-actions .btn-outline{display:none}}
 .guest-cta{margin:0 0 1rem}
+
+/* remove / restore buttons on batch cards */
+.card-action{margin-top:0.625rem;width:100%;justify-content:center}

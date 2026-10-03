@@ -6,7 +6,7 @@ export function SupplierDashboard({ go }: { go: (p: string) => void }) {
   const { org } = useAuth()
   const prods = useQuery(() => supabase.from('products').select('id,title,status,min_moq,categories(name),price_tiers(min_qty,unit_price_paise)').eq('organization_id', org?.id ?? '').is('deleted_at', null), [org?.id])
   const pos = useQuery(() => supabase.from('purchase_orders').select('*, pool:pool_id(title, moq_qty, paid_qty)'), [])
-  const pools = useQuery(() => supabase.from('moq_pools').select('*').eq('manufacturer_org_id', org?.id ?? ''), [org?.id])
+  const pools = useQuery(() => supabase.from('moq_pools').select('*').eq('manufacturer_org_id', org?.id ?? '').is('removed_at', null), [org?.id])
   const p = prods.rows as Row[]; const o = pos.rows as Row[]
   return (<>
     {org?.verification_status !== 'approved' && <div className="info-card" style={{ marginBottom: 20 }}><div className="info-card-body">⏳ Your supplier account is <b>{org?.verification_status}</b>. An admin must verify it before your products go live.</div></div>}

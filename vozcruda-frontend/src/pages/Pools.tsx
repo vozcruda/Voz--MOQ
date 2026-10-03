@@ -3,6 +3,7 @@ import { supabase, inr, fdate, daysLeft, rpc, pubUrl, type Row } from '../supaba
 import { useAuth } from '../auth'
 import { useGuest } from '../guest'
 import { useQuery, Err, Status, Chip, Progress, pct, Empty, Loading, Modal, Field, Section, Card } from '../ui/kit'
+import { NoteDialog } from './Ops'
 
 export interface Pool { id: string; no: string; title: string; moq: number; target: number; paid: number; reserved: number
   deadline: string; status: string; min: number; max: number; level?: string; spec: Row; productId?: string; raw: Row }
@@ -21,10 +22,10 @@ export const priceAt = (tiers: Row[], qty: number): number | null => {
   return p
 }
 
-export function usePools(all: boolean) {
+export function usePools(all: boolean, removed = false) {
   const { guest } = useGuest()   // visitors who are not signed in read the guest views (no supplier identity)
-  const pools = useQuery(() => all ? supabase.from('moq_pools').select('*').order('created_at', { ascending: false })
-    : supabase.from(guest ? 'guest_pools' : 'open_pools').select('*').order('deadline_at'), [all, guest])
+  const pools = useQuery(() => all ? (removed ? supabase.from('moq_pools').select('*').not('removed_at', 'is', null) : supabase.from('moq_pools').select('*').is('removed_at', null)).order('created_at', { ascending: false })
+    : supabase.from(guest ? 'guest_pools' : 'open_pools').select('*').order('deadline_at'), [all, guest, removed])
   const tiers = useQuery(() => supabase.from(all ? 'pool_price_tiers' : guest ? 'guest_pool_price_tiers' : 'open_pool_price_tiers').select('*'), [all, guest])
   const pics = useQuery(() => supabase.from(guest ? 'guest_pool_images' : 'pool_images').select('pool_id, position, object_key'), [all, guest])
   const byPool = (id: string) => tiers.rows.filter((t: Row) => t.pool_id === id)
@@ -32,7 +33,7 @@ export function usePools(all: boolean) {
   return { pools: (pools.rows as Row[]).map(normPool), byPool, cover, err: pools.err, loading: pools.loading, reload: pools.reload }
 }
 
-export function PoolCard({ p, tiers, img, onOpen }: { p: Pool; tiers: Row[]; img?: string; onOpen: (id: string) => void }) {
+export function PoolCard({ p, tiers, img, onOpen, action }: { p: Pool; tiers: Row[]; img?: string; onOpen: (id: string) => void; action?: { label: string; danger?: boolean; onClick: () => void } }) {
   const price = priceAt(tiers, p.paid)
   const closed = !['open', 'moq_reached'].includes(p.status)
   return (
@@ -56,25 +57,42 @@ export function PoolCard({ p, tiers, img, onOpen }: { p: Pool; tiers: Row[]; img
           <div className="product-price">{inr(price)} <span>/ piece</span></div>
           <button className={'btn btn-sm ' + (closed ? 'btn-outline' : 'btn-primary')}>{closed ? 'View' : 'Join Batch'}</button>
         </div>
+        {action && <button className="btn btn-outline btn-sm card-action" style={action.danger ? { color: 'var(--danger)' } : undefined} onClick={e => { e.stopPropagation(); action.onClick() }}>{action.label}</button>}
       </div>
     </div>
   )
 }
 
+export function RemoveBatchDialog({ pool, onClose, onDone }: { pool: { id: string; no: string; title: string; status: string; paid: number }; onClose: () => void; onDone: () => void }) {
+  const live = ['draft', 'open', 'moq_reached'].includes(pool.status)
+  return <NoteDialog title={`Remove ${pool.no}`} sub={pool.title} label="Reason (kept in the activity log)" confirm="Remove batch" danger onClose={onClose}
+    extra={<div className="info-card" style={{ marginBottom: 12 }}><div className="info-card-body">
+      {live ? <>This batch is still live, so it will be <b>cancelled first</b>: unpaid reservations are released{pool.paid > 0 ? <> and buyers who already paid (<b>{pool.paid} pcs</b>) move to <b>refund pending</b></> : null}, and they are notified. Then it disappears from every list.</> : <>It will disappear from every list. Orders, payments and history are kept.</>}
+      {' '}You can restore it later from the “Removed” filter.</div></div>}
+    onSubmit={async note => { const e = await rpc('admin_remove_pool', { p_pool: pool.id, p_reason: note }); if (!e) onDone(); return e }} />
+}
+
 export function PoolsBrowse({ admin, onOpen }: { admin: boolean; onOpen: (id: string) => void }) {
-  const { pools, byPool, cover, err, loading } = usePools(admin)
-  const [q, setQ] = useState(''); const [st, setSt] = useState('')
-  const list = pools.filter(p => p.title.toLowerCase().includes(q.toLowerCase()) && (!st || p.status === st))
+  const { can } = useAuth()
+  const [q, setQ] = useState(''); const [st, setSt] = useState(''); const showRemoved = admin && st === 'removed'
+  const { pools, byPool, cover, err, loading, reload } = usePools(admin, showRemoved)
+  const [rm, setRm] = useState<Pool | null>(null); const [msg, setMsg] = useState('')
+  const list = pools.filter(p => p.title.toLowerCase().includes(q.toLowerCase()) && (!st || showRemoved || p.status === st))
+  const canAct = admin && can('pools')
+  const actionFor = (p: Pool) => !canAct ? undefined : showRemoved
+    ? { label: '↩ Restore', onClick: async () => { const e = await rpc('admin_restore_pool', { p_pool: p.id }); setMsg(e ?? `${p.no} restored`); reload() } }
+    : p.status === 'po_placed' ? undefined : { label: '🗑 Remove', danger: true, onClick: () => setRm(p) }
   return (<>
     <div className="filter-bar">
       <div className="search-input-wrap"><span className="search-icon">🔍</span>
         <input className="search-input" placeholder="Search batches…" value={q} onChange={e => setQ(e.target.value)} /></div>
       {admin && <select className="filter-select" value={st} onChange={e => setSt(e.target.value)}>
-        <option value="">All Status</option>{['draft', 'open', 'moq_reached', 'po_placed', 'cancelled', 'expired'].map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}</select>}
+        <option value="">All Status</option>{['draft', 'open', 'moq_reached', 'po_placed', 'cancelled', 'expired'].map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}<option value="removed">🗑 Removed</option></select>}
     </div>
-    <Err m={err} />
-    {loading ? <Loading /> : !list.length ? <Empty icon="📦" title="No batches yet" desc="Open batches will appear here." /> :
-      <div className="products-grid">{list.map(p => <PoolCard key={p.id} p={p} tiers={byPool(p.id)} img={cover(p.id)} onOpen={onOpen} />)}</div>}
+    <Err m={err} />{msg && <p className="form-hint">{msg}</p>}
+    {loading ? <Loading /> : !list.length ? <Empty icon="📦" title={showRemoved ? 'No removed batches' : 'No batches yet'} desc={showRemoved ? undefined : 'Open batches will appear here.'} /> :
+      <div className="products-grid">{list.map(p => <PoolCard key={p.id} p={p} tiers={byPool(p.id)} img={cover(p.id)} onOpen={onOpen} action={actionFor(p)} />)}</div>}
+    {rm && <RemoveBatchDialog pool={rm} onClose={() => setRm(null)} onDone={() => { setMsg(`${rm.no} removed`); reload() }} />}
   </>)
 }
 
@@ -85,7 +103,7 @@ export function PoolDetail({ id, onBack, goPage, autoJoin }: { id: string; onBac
   const tr = useQuery(() => supabase.from(admin ? 'pool_price_tiers' : guest ? 'guest_pool_price_tiers' : 'open_pool_price_tiers').select('*').eq('pool_id', id).order('min_total_qty'), [id, admin, guest])
   const cm = useQuery(() => guest ? Promise.resolve({ data: [], error: null }) : supabase.from('pool_commitments').select('*, buyer:buyer_org_id(legal_name, trade_name), pool_commitment_items(size, color, qty)').eq('pool_id', id).order('created_at', { ascending: false }), [id, guest])
   const pics = useQuery(() => supabase.from(guest ? 'guest_pool_images' : 'pool_images').select('position, object_key, alt_text').eq('pool_id', id).order('position'), [id, guest])
-  const [shot, setShot] = useState(0)
+  const [shot, setShot] = useState(0); const [rmOpen, setRmOpen] = useState(false)
   const po = useQuery(() => admin ? supabase.from('purchase_orders').select('id, po_no, status').eq('pool_id', id) : Promise.resolve({ data: [], error: null }), [id, admin])
   if (pr.loading) return <Loading />
   const raw = (pr.rows as Row[])[0]
@@ -98,6 +116,8 @@ export function PoolDetail({ id, onBack, goPage, autoJoin }: { id: string; onBac
   const canJoin = !admin && role === 'buyer' && ['open', 'moq_reached'].includes(p.status)
   return (<>
     <div className="row" style={{ marginBottom: 14 }}><button className="btn btn-ghost btn-sm" onClick={onBack}>← Back</button></div>
+    {admin && raw.removed_at && <div className="info-card" style={{ marginBottom: 14 }}><div className="info-card-body">🗑 This batch was removed from the listing on {fdate(raw.removed_at)}. Buyers and suppliers no longer see it.</div></div>}
+    {rmOpen && <RemoveBatchDialog pool={p} onClose={() => setRmOpen(false)} onDone={() => { setMsg('Batch removed from the listing'); setBad(false); pr.reload(); cm.reload() }} />}
     <div className="batch-progress-hero">
       <div className="hero-top">
         <div><div className="hero-label">{p.no} · <Status s={p.status} /></div><div className="hero-title">{p.title}</div>
@@ -147,6 +167,8 @@ export function PoolDetail({ id, onBack, goPage, autoJoin }: { id: string; onBac
           {(po.rows as Row[])[0] && <button className="btn btn-outline" onClick={() => goPage('purchase-orders')}>View {(po.rows as Row[])[0].po_no}</button>}
           {can('pools') && ['open', 'moq_reached'].includes(p.status) && <button className="btn btn-outline" onClick={() => { const d = prompt('New deadline (YYYY-MM-DD)'); if (d) act('admin_extend_pool', { p_pool: p.id, p_new_deadline: new Date(d).toISOString() }, 'Deadline extended') }}>Extend deadline</button>}
           {can('pools') && ['draft', 'open', 'moq_reached'].includes(p.status) && <button className="btn btn-outline" style={{ color: 'var(--danger)' }} onClick={() => { const r = prompt('Reason for cancelling?'); if (r) act('admin_cancel_pool', { p_pool: p.id, p_reason: r }, 'Pool cancelled') }}>✖ Cancel batch</button>}
+          {can('pools') && !raw.removed_at && p.status !== 'po_placed' && <button className="btn btn-outline" style={{ color: 'var(--danger)' }} onClick={() => setRmOpen(true)}>🗑 Remove from listing</button>}
+          {can('pools') && raw.removed_at && <button className="btn btn-outline" onClick={() => act('admin_restore_pool', { p_pool: p.id }, 'Batch restored')}>↩ Restore batch</button>}
         </div></div>}
       </div>
     </div>

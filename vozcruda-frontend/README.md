@@ -69,7 +69,7 @@ Run `backend/012_supplier_insights_requirements_support.sql` (after 011).
 ## 013 — PayU online payments
 Run `backend/013_payu_gateway.sql`, then deploy the two Edge Functions and set secrets:
 ```
-supabase secrets set PAYU_KEY=... PAYU_SALT=... PAYU_ENV=test APP_URL=https://moqless.vozcruda.com
+supabase secrets set PAYU_KEY=... PAYU_SALT=... PAYU_ENV=test APP_URL=https://YOUR-DOMAIN
 supabase functions deploy payu-initiate
 supabase functions deploy payu-callback --no-verify-jwt
 ```
@@ -80,3 +80,6 @@ Run `backend/014_guest_browsing.sql`. Visitors who are not signed in can browse 
 
 ## Branding (v17)
 Smallotz brand assets live in `public/` (favicons, manifest, OG image) and `public/brand/` (logos). Colours: ink `#13233A`, marigold `#F2A33A` (buttons and highlights; text uses darker `--accent-text` for contrast). Font: Bricolage Grotesque.
+
+## 015 — Remove batches and products
+`backend/015_remove_batches_products.sql` adds `admin_remove_pool` / `admin_restore_pool` and `remove_product` / `admin_restore_product`. Removing hides (soft delete); nothing is destroyed and an admin can restore from the "Removed" filter. Live batches are cancelled first (paid buyers go to refund pending). Batches with a purchase order cannot be removed. Suppliers can remove their own products when they have no live batch.
