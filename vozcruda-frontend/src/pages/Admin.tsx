@@ -50,6 +50,8 @@ export function Reservations() {
   const q = useQuery(() => supabase.from('pool_commitments').select('*, buyer:buyer_org_id(legal_name, trade_name), pool:pool_id(pool_no, title), pool_commitment_items(size, color, qty)').order('created_at', { ascending: false }).limit(200), [])
   const [st, setSt] = useState(''); const [open, setOpen] = useState<string | null>(null)
   const [manual, setManual] = useState(false); const [pay, setPay] = useState<Row | null>(null); const [cancel, setCancel] = useState<Row | null>(null); const [ext, setExt] = useState<Row | null>(null)
+  const [late, setLate] = useState<Row | null>(null); const [refund, setRefund] = useState<Row | null>(null); const [rebate, setRebate] = useState<Row | null>(null); const [notice, setNotice] = useState('')
+  const rebateDue = (r: Row) => Number(r.rebate_paise ?? 0) > 0 && !r.rebate_paid_at && ['paid', 'fulfilled'].includes(r.status)
   const rows = (q.rows as Row[]).filter(r => !st || r.status === st)
   const canBook = can('payments') || can('pools')
   return (<>
@@ -57,19 +59,33 @@ export function Reservations() {
       {['reserved', 'paid', 'fulfilled', 'cancelled', 'expired', 'refund_pending', 'refunded'].map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}</select>
       {canBook && <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setManual(true)}>+ Manual reservation</button>}</div>
     <Err m={q.err} />
+    {notice && <div className="pay-banner warn">{notice}<button className="notif-x" aria-label="Dismiss" onClick={() => setNotice('')}>✕</button></div>}
     <Card flush>{q.loading ? <Loading /> : !rows.length ? <Empty icon="📋" title="No reservations" desc={canBook ? 'Use “Manual reservation” to book a buyer into a batch yourself.' : undefined} /> : <table><thead><tr><th>Buyer</th><th>Batch</th><th>Qty</th><th>Total</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody>
       {rows.map(r => <Fragment key={r.id}><tr><td className="td-strong">{r.buyer?.trade_name || r.buyer?.legal_name}</td><td>{r.pool?.title}<div className="td-muted">{r.pool?.pool_no}</div></td><td>{r.qty}</td><td>{inr(r.amount_due_paise)}</td><td><Status s={r.status} />{r.status === 'reserved' && <div className="td-muted">pay by {fdate(r.reserved_until)}</div>}</td><td className="td-muted">{fdate(r.created_at)}</td>
         <td className="row">{can('payments') && r.status === 'reserved' && <button className="btn btn-outline btn-sm" onClick={() => setPay(r)}>Mark paid</button>}
+          {can('payments') && ['expired', 'cancelled'].includes(r.status) && <button className="btn btn-outline btn-sm" onClick={() => setLate(r)}>Record late payment</button>}
+          {can('payments') && r.status === 'refund_pending' && <button className="btn btn-outline btn-sm" onClick={() => setRefund(r)}>Mark refunded</button>}
+          {can('payments') && rebateDue(r) && <button className="btn btn-outline btn-sm" onClick={() => setRebate(r)}>Pay rebate {inr(r.rebate_paise)}</button>}
           {can('payments') && r.status === 'reserved' && <button className="btn btn-ghost btn-sm" onClick={() => setExt(r)}>Extend</button>}
           {can('payments') && ['reserved', 'paid'].includes(r.status) && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => setCancel(r)}>Cancel</button>}
           <button className="btn btn-ghost btn-sm" onClick={() => setOpen(open === r.id ? null : r.id)}>{open === r.id ? 'Hide' : 'Details'}</button></td></tr>
         {open === r.id && <tr><td colSpan={7}><table className="po-table"><thead><tr><th>Size</th><th>Colour</th><th>Qty</th></tr></thead><tbody>
           {(r.pool_commitment_items ?? []).map((i: Row, k: number) => <tr key={k}><td>{i.size}</td><td>{i.color}</td><td>{i.qty}</td></tr>)}</tbody></table>
-          <div className="td-muted" style={{ marginTop: 8 }}>Locked price {inr(r.unit_price_locked_paise)}/pc{r.payment_ref ? ` · payment ref ${r.payment_ref}` : ''}{r.paid_at ? ` · paid ${fdate(r.paid_at)}` : ''}{r.shipping_address ? ` · ship to ${[r.shipping_address.line1, r.shipping_address.city, r.shipping_address.pincode].filter(Boolean).join(', ')}` : ''}</div></td></tr>}</Fragment>)}</tbody></table>}</Card>
+          <div className="td-muted" style={{ marginTop: 8 }}>Locked price {inr(r.unit_price_locked_paise)}/pc{r.payment_ref ? ` · payment ref ${r.payment_ref}` : ''}{r.paid_at ? ` · paid ${fdate(r.paid_at)}` : ''}{r.refund_ref ? ` · refunded ${fdate(r.refunded_at)} (ref ${r.refund_ref})` : ''}{Number(r.rebate_paise ?? 0) > 0 ? ` · rebate ${inr(r.rebate_paise)} ${r.rebate_paid_at ? `paid ${fdate(r.rebate_paid_at)} (ref ${r.rebate_ref})` : 'owed'}` : ''}{r.shipping_address ? ` · ship to ${[r.shipping_address.line1, r.shipping_address.city, r.shipping_address.pincode].filter(Boolean).join(', ')}` : ''}</div></td></tr>}</Fragment>)}</tbody></table>}</Card>
     {manual && <ManualReservation onClose={() => setManual(false)} onDone={() => { setManual(false); q.reload() }} />}
     {ext && <ExtendReservation r={ext} onClose={() => setExt(null)} onDone={q.reload} />}
     {pay && <NoteDialog title="Mark as paid" sub={`${pay.buyer?.trade_name || pay.buyer?.legal_name} · ${inr(pay.amount_due_paise)}`} label="Payment reference (UTR / transaction ID)" confirm="Mark paid" onClose={() => setPay(null)}
       onSubmit={async ref => { const e = await rpc('admin_mark_paid', { p_commitment: pay.id, p_payment_ref: ref }); if (!e) q.reload(); return e }} />}
+    {late && <NoteDialog title="Record late payment" sub={`${late.buyer?.trade_name || late.buyer?.legal_name} · ${inr(late.amount_due_paise)} · this reservation is ${late.status}`} label="Payment reference (UTR / transaction ID)" confirm="Record payment"
+      extra={<p className="form-hint">If the batch is still open and has room, the payment counts toward it. Otherwise it is kept as refund pending so you can return the money.</p>} onClose={() => setLate(null)}
+      onSubmit={async ref => { const { data, error } = await supabase.rpc('admin_record_late_payment', { p_commitment: late.id, p_payment_ref: ref }); if (error) return error.message
+        if (data !== 'paid') setNotice(`Payment ${ref} was recorded but could not count toward the batch (it is closed or full), so it is now refund pending.`); q.reload(); return null }} />}
+    {refund && <NoteDialog title="Mark refunded" sub={`${refund.buyer?.trade_name || refund.buyer?.legal_name} · ${inr(refund.amount_due_paise)} · ${refund.pool?.pool_no}`} label="Refund reference (UTR / PayU refund ID)" confirm="Mark refunded"
+      extra={<p className="form-hint">Send the money back first (bank transfer or the PayU dashboard), then record it here. The buyer is notified.</p>} onClose={() => setRefund(null)}
+      onSubmit={async ref => { const e = await rpc('admin_mark_refunded', { p_commitment: refund.id, p_refund_ref: ref }); if (!e) q.reload(); return e }} />}
+    {rebate && <NoteDialog title="Pay price-drop rebate" sub={`${rebate.buyer?.trade_name || rebate.buyer?.legal_name} · ${inr(rebate.rebate_paise)} owed · ${rebate.pool?.pool_no}`} label="Payment reference (UTR / PayU refund ID)" confirm="Mark rebate paid"
+      extra={<p className="form-hint">The batch reached a cheaper price tier than the buyer paid. Send them the difference, then record it here.</p>} onClose={() => setRebate(null)}
+      onSubmit={async ref => { const e = await rpc('admin_mark_rebate_paid', { p_commitment: rebate.id, p_ref: ref }); if (!e) q.reload(); return e }} />}
     {cancel && <NoteDialog title="Cancel reservation" sub={`${cancel.buyer?.trade_name || cancel.buyer?.legal_name} · ${cancel.pool?.pool_no}${cancel.status === 'paid' ? ' — a paid reservation moves to refund pending' : ''}`} label="Reason" confirm="Cancel reservation" danger onClose={() => setCancel(null)}
       onSubmit={async why => { const e = await rpc('admin_cancel_commitment', { p_commitment: cancel.id, p_reason: why }); if (!e) q.reload(); return e }} />}
   </>)

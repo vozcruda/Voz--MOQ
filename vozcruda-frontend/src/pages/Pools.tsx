@@ -142,7 +142,8 @@ export function PoolDetail({ id, onBack, goPage, autoJoin }: { id: string; onBac
             {commits.map(c => <tr key={c.id}><td className="td-strong">{c.buyer?.trade_name || c.buyer?.legal_name}</td><td>{c.qty}</td>
               <td className="td-muted">{(c.pool_commitment_items ?? []).map((i: Row) => `${i.size}/${i.color}×${i.qty}`).join(', ')}</td>
               <td>{inr(c.amount_due_paise)}</td><td><Status s={c.status} /></td>
-              <td>{c.status === 'reserved' && can('payments') && <button className="btn btn-outline btn-sm" onClick={() => { const ref = prompt('Payment reference (UTR)?'); if (ref) act('admin_mark_paid', { p_commitment: c.id, p_payment_ref: ref }, 'Marked paid') }}>Mark paid</button>}</td></tr>)}
+              <td>{c.status === 'reserved' && can('payments') && <button className="btn btn-outline btn-sm" onClick={() => { const ref = prompt('Payment reference (UTR)?'); if (ref) act('admin_mark_paid', { p_commitment: c.id, p_payment_ref: ref }, 'Marked paid') }}>Mark paid</button>}
+                {c.status === 'refund_pending' && can('payments') && <button className="btn btn-outline btn-sm" onClick={() => { const ref = prompt('Refund reference (UTR / PayU refund ID)? Send the money back first.'); if (ref) act('admin_mark_refunded', { p_commitment: c.id, p_refund_ref: ref }, 'Marked refunded') }}>Mark refunded</button>}</td></tr>)}
           </tbody></table>}</Card>}
         {!admin && commits.length > 0 && <Card title="Your commitments" flush><table><thead><tr><th>Qty</th><th>Locked price</th><th>Total</th><th>Status</th></tr></thead><tbody>
           {commits.map(c => <tr key={c.id}><td>{c.qty}</td><td>{inr(c.unit_price_locked_paise)}</td><td>{inr(c.amount_due_paise)}</td><td><Status s={c.status} /></td></tr>)}</tbody></table></Card>}
