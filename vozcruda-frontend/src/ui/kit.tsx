@@ -23,10 +23,10 @@ export function Chip({ c = 'gray', children }: { c?: 'green' | 'orange' | 'blue'
   return <span className={'chip chip-' + c}>{children}</span>
 }
 const STATUS_COLOR: Record<string, 'green' | 'orange' | 'blue' | 'yellow' | 'gray' | 'red'> = {
-  open: 'green', approved: 'green', paid: 'green', confirmed: 'green', completed: 'green', delivered: 'green', accepted: 'green',
+  open: 'green', approved: 'green', paid: 'green', confirmed: 'green', completed: 'green', delivered: 'green', accepted: 'green', fulfilled: 'green',
   moq_reached: 'orange', po_placed: 'blue', in_production: 'blue', sent: 'blue', shipped: 'blue', ready: 'blue',
-  pending: 'yellow', reserved: 'yellow', draft: 'gray', archived: 'gray',
-  cancelled: 'red', rejected: 'red', expired: 'red', refunded: 'red', disputed: 'red',
+  pending: 'yellow', reserved: 'yellow', refund_pending: 'orange', refunded: 'gray', draft: 'gray', archived: 'gray',
+  cancelled: 'red', rejected: 'red', expired: 'red', disputed: 'red',
 }
 export const Status = ({ s }: { s?: string }) => <Chip c={STATUS_COLOR[s ?? ''] ?? 'gray'}>{(s ?? '—').replace(/_/g, ' ')}</Chip>
 
