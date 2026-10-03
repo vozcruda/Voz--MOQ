@@ -11,13 +11,13 @@ function Wrap({ quote, children, features, onBack }: { quote: ReactNode; childre
   return (
     <div className="login-wrap">
       <div className="login-left"><div>
-        <img className="brand-logo-lg" src="/brand/logo-lockup-dark.png" alt="MoqLess — Voz Cruda's MOQ Aggregation App" width="640" height="411" />
+        <img className="brand-logo-lg" src="/brand/logo-horizontal-white.png" alt="Smallotz" width="577" height="128" />
         <div className="login-quote">{quote}</div>
         {features && <div className="login-features">
           {[['🏭', 'Factory-Direct Pricing', "Access MOQ prices that solo buyers can't reach"], ['🤝', 'Group Aggregation', 'Your order pools with other buyers automatically'], ['📦', 'Real-Time Progress', 'Track exactly when your batch is ready to close']]
             .map(([i, t, d]) => <div className="login-feature" key={t}><div className="login-feature-icon">{i}</div><div><div className="login-feature-title">{t}</div><div className="login-feature-desc">{d}</div></div></div>)}</div>}
       </div><div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>© {new Date().getFullYear()} Voz Cruda LLP</div></div>
-       <div className="login-right">{onBack && <button className="link back-browse" onClick={onBack}>← Keep browsing</button>}<img className="login-logo-small" src="/brand/logo-lockup-light.png" alt="MoqLess" width="640" height="411" />{children}</div>
+       <div className="login-right">{onBack && <button className="link back-browse" onClick={onBack}>← Keep browsing</button>}<img className="login-logo-small" src="/brand/logo-horizontal.png" alt="Smallotz" width="577" height="128" />{children}</div>
     </div>
   )
 }
@@ -83,7 +83,7 @@ export function AuthScreen({ initialMode = 'in', onBack }: { initialMode?: 'in' 
     <Wrap onBack={onBack} features={mode === 'in'} quote={mode === 'in' ? <>"Small orders,<br />collective power."</> : <>"Join the collective.<br />Buy better."</>}>
       <div className="login-card" style={{ width: mode === 'up' ? 460 : 420 }}>
         <div className="login-title">{mode === 'in' ? 'Welcome back' : 'Create account'}</div>
-        <div className="login-sub">{mode === 'in' ? 'Sign in to your Voz Cruda account' : 'Start buying factory-direct today'}</div>
+        <div className="login-sub">{mode === 'in' ? 'Sign in to your Smallotz account' : 'Start buying factory-direct today'}</div>
         {mode === 'up' && <>
           <div className="form-row"><Field label="Full name"><input className="form-input" value={f.name} onChange={e => up('name', e.target.value)} placeholder="Priya Sharma" /></Field>
             <Field label="Phone"><input className="form-input" value={f.phone} onChange={e => up('phone', e.target.value)} placeholder="+91 98765 43210" /></Field></div>

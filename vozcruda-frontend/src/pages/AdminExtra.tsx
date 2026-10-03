@@ -48,7 +48,7 @@ export function CreateBatch({ onClose, onDone }: { onClose: () => void; onDone: 
       <div className="form-row"><Field label="Closes on"><input className="form-input" type="date" value={f.deadline} onChange={e => up('deadline', e.target.value)} /></Field>
         <Field label="Payment window (min)"><input className="form-input" type="number" value={f.window} onChange={e => up('window', e.target.value)} /></Field></div>
       {tierEditor('Buyer price tiers', sell, setSell, 'Price must not rise as quantity grows.')}
-      {tierEditor('Supplier cost tiers', cost, setCost, 'What Voz Cruda pays the factory at each pool size.')}
+      {tierEditor('Supplier cost tiers', cost, setCost, 'What Smallotz pays the factory at each pool size.')}
       <label className="row" style={{ fontSize: 13 }}><input type="checkbox" checked={f.open} onChange={e => up('open', e.target.checked)} /> Open for buyers immediately</label>
       <Err m={err} />
     </Modal>

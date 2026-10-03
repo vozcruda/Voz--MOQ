@@ -55,7 +55,7 @@ export function MarketInsights() {
   const fastest = [...b].filter(x => x.median_fill_hours != null).sort((a, c) => a.median_fill_hours - c.median_fill_hours).slice(0, 3)
   const gaps = b.filter(x => !x.mine.lists_product && (x.fill_rate ?? 0) >= 60).slice(0, 3)
   return (<>
-    <Section title="Market insights" sub="What buyers are ordering across MoqLess. Anonymous — no supplier names or individual prices. Prices shown are catalogue prices."
+    <Section title="Market insights" sub="What buyers are ordering across Smallotz. Anonymous — no supplier names or individual prices. Prices shown are catalogue prices."
       action={<select className="form-input" style={{ width: 'auto' }} value={days} onChange={e => setDays(Number(e.target.value))}><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option><option value={180}>Last 6 months</option></select>} />
     <Err m={err} />
     {loading ? <Loading /> : !b.length ? <Card><Empty icon="📈" title="Not enough market activity yet" desc="Insights appear once there are at least 3 batches from 2 manufacturers in the same spec. Check back as more batches go live." /></Card> : <>

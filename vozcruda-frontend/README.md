@@ -77,3 +77,6 @@ Buyer → Payments → **Pay now** opens PayU. The reservation is marked paid on
 
 ## 014 — guest browsing
 Run `backend/014_guest_browsing.sql`. Visitors who are not signed in can browse open batches (with prices and photos) and the product catalogue; supplier names/ids are not exposed (`guest_*` views; the old anon access to `open_pools` / `public_products` is revoked). Joining, reserving, paying and everything else still needs a signed-in buyer. When a guest taps "Sign in to join this batch" the intent is saved (1 hour) and the buyer lands back on that batch with the join form open after signing in or onboarding. Suppliers and admins sign in as before ("Manufacturer or admin? Sign in" in the guest sidebar).
+
+## Branding (v17)
+Smallotz brand assets live in `public/` (favicons, manifest, OG image) and `public/brand/` (logos). Colours: ink `#13233A`, marigold `#F2A33A` (buttons and highlights; text uses darker `--accent-text` for contrast). Font: Bricolage Grotesque.

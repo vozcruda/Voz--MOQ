@@ -11,7 +11,7 @@ const GROUPS: Group[] = [
   { key: 'payment_instructions', title: 'Payment instructions', sub: 'Shown to buyers when they tap “How to pay”. Buyers can read these, so never put passwords here.', fields: [
     { k: 'account_name', label: 'Account name' }, { k: 'bank_name', label: 'Bank' },
     { k: 'account_number', label: 'Account number' }, { k: 'ifsc', label: 'IFSC code' },
-    { k: 'upi_id', label: 'UPI ID', hint: 'e.g. moqless@hdfcbank' },
+    { k: 'upi_id', label: 'UPI ID', hint: 'e.g. smallotz@hdfcbank' },
     { k: 'note', label: 'Note to buyers', area: true } ] },
   { key: 'company_profile', title: 'Company profile', sub: 'Your business details for support and invoices.', fields: [
     { k: 'name', label: 'Company name' }, { k: 'support_email', label: 'Support email' },

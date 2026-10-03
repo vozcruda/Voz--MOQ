@@ -91,7 +91,7 @@ function Shell() {
       <div className={'sidebar-backdrop' + (menu ? ' open' : '')} onClick={() => setMenu(false)} />
       <div className={'sidebar' + (menu ? ' open' : '')}>
         <button className="sidebar-close" aria-label="Close menu" onClick={() => setMenu(false)}>✕</button>
-        <div className="sidebar-brand"><img className="brand-logo" src="/brand/logo-lockup-dark.png" alt="MoqLess — Voz Cruda's MOQ Aggregation App" width="640" height="411" /></div>
+        <div className="sidebar-brand"><img className="brand-logo" src="/brand/logo-horizontal-white.png" alt="Smallotz" width="577" height="128" /></div>
         <div className="sidebar-role"><span className="role-dot" /><span>{admin ? (isSuper ? 'Super Admin' : 'Admin') : nav.label}</span></div>
         <nav className="sidebar-nav">
           {groups.map(([g, items]) => <div key={g}><div className="nav-section-label">{g}</div>
@@ -129,7 +129,7 @@ function GuestShell() {
         <div className={'sidebar-backdrop' + (menu ? ' open' : '')} onClick={() => setMenu(false)} />
         <div className={'sidebar' + (menu ? ' open' : '')}>
           <button className="sidebar-close" aria-label="Close menu" onClick={() => setMenu(false)}>✕</button>
-          <div className="sidebar-brand"><img className="brand-logo" src="/brand/logo-lockup-dark.png" alt="MoqLess — Voz Cruda's MOQ Aggregation App" width="640" height="411" /></div>
+          <div className="sidebar-brand"><img className="brand-logo" src="/brand/logo-horizontal-white.png" alt="Smallotz" width="577" height="128" /></div>
           <nav className="sidebar-nav"><div className="nav-section-label">Marketplace</div>
             {items.map(i => <button key={i.id} className={'nav-item' + (page === i.id || (page === 'pool' && i.id === 'browse') ? ' active' : '')} onClick={() => go(i.id)}><span className="nav-icon">{i.icon}</span> {i.label}</button>)}</nav>
           <div className="guest-side">

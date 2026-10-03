@@ -17,7 +17,7 @@ function NewThread({ onClose, onDone }: { onClose: () => void; onDone: (id: stri
     if (error) return setErr(error.message); ping(); onDone(data as string)
   }
   return (
-    <Modal title="Message MoqLess support" sub="Any member of our team can pick this up" onClose={onClose}
+    <Modal title="Message Smallotz support" sub="Any member of our team can pick this up" onClose={onClose}
       footer={<><button className="btn btn-outline" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={go}>{busy ? 'Sending…' : 'Send'}</button></>}>
       <Field label="Topic"><select className="form-input" value={f.topic} onChange={e => setF({ ...f, topic: e.target.value })}>{Object.entries(TOPICS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
       <Field label="Subject"><input className="form-input" maxLength={140} value={f.subject} onChange={e => setF({ ...f, subject: e.target.value })} /></Field>
@@ -49,7 +49,7 @@ function Thread({ t, admin, onBack, onChanged }: { t: Row; admin: boolean; onBac
       <div className="chat-body">{q.loading && !(q.rows as Row[]).length ? <Loading /> : (q.rows as Row[]).map(m => {
         const mineSide = admin ? m.sender_side === 'admin' : m.sender_side === 'org'
         return <div key={m.id} className={'bubble ' + (mineSide ? 'me' : 'them')}>
-          <div className="msg-meta">{m.sender_side === 'admin' && !admin ? 'MoqLess Support' : m.sender_name} · {stamp(m.created_at)}</div><div className="msg-body">{m.body}</div></div>
+          <div className="msg-meta">{m.sender_side === 'admin' && !admin ? 'Smallotz Support' : m.sender_name} · {stamp(m.created_at)}</div><div className="msg-body">{m.body}</div></div>
       })}<div ref={end} /></div>
       <Err m={err || q.err} />
       <div className="chat-send">
@@ -72,7 +72,7 @@ export function Support() {
   const [sel, setSel] = useState<string | null>(null); const [nw, setNw] = useState(false)
   const rows = q.rows as Row[]; const cur = rows.find(r => r.id === sel)
   return (<>
-    <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}><div className="td-muted">Questions, problems or ideas? Message the MoqLess team — we reply here and notify you.</div><button className="btn btn-primary btn-sm" onClick={() => setNw(true)}>+ New message</button></div>
+    <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}><div className="td-muted">Questions, problems or ideas? Message the Smallotz team — we reply here and notify you.</div><button className="btn btn-primary btn-sm" onClick={() => setNw(true)}>+ New message</button></div>
     <Err m={q.err} />
     {q.loading && !rows.length ? <Loading /> : !rows.length ? <Card><Empty icon="💬" title="No conversations yet" desc="Start one and a member of our team will reply." /></Card> :
       <div className={'chat-wrap' + (cur ? ' has-sel' : '')}><Card flush><List rows={rows} sel={sel ?? undefined} onSel={setSel} admin={false} /></Card>

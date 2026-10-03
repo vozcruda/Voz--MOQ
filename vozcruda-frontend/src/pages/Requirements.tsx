@@ -81,7 +81,7 @@ export function SupplierRequirements() {
       <div className="tabs" style={{ marginBottom: 0 }}>{[['board', `Open requests (${open.filter(r => r.status === 'published').length})`], ['mine', `My requests (${(mine.rows as Row[]).length})`]].map(([k, l]) => <div key={k} className={'tab' + (tab === k ? ' active' : '')} onClick={() => setTab(k)}>{l}</div>)}</div>
       <button className="btn btn-primary btn-sm" onClick={() => setPosting(true)}>+ Post a requirement</button></div>
     <Err m={board.err || mine.err} />
-    {tab === 'board' ? (board.loading ? <Loading /> : !open.length ? <Card><Empty icon="📌" title="No open requirements" desc="When MoqLess or another manufacturer needs a product or raw material, it appears here." /></Card> :
+    {tab === 'board' ? (board.loading ? <Loading /> : !open.length ? <Card><Empty icon="📌" title="No open requirements" desc="When Smallotz or another manufacturer needs a product or raw material, it appears here." /></Card> :
       <div className="req-grid">{open.map(r => { const m = myResp(r.id); return (
         <div className="req-card" key={r.id}>
           <div className="row" style={{ justifyContent: 'space-between' }}><Chip c={r.kind === 'raw_material' ? 'orange' : 'blue'}>{KIND[r.kind]}</Chip><span className="td-muted">{r.req_no}</span></div>
@@ -104,8 +104,8 @@ export function SupplierRequirements() {
     {resp && <RespondDialog r={resp} mine={myResp(resp.id)?.status === 'withdrawn' ? undefined : myResp(resp.id)} onClose={() => setResp(null)} onDone={() => { setResp(null); all() }} />}
     {wd && <Modal title={wd.own ? 'Withdraw this request?' : 'Withdraw your response?'} sub={wd.title} onClose={() => setWd(null)} footer={<><button className="btn btn-outline" onClick={() => setWd(null)}>Keep it</button>
       <button className="btn btn-danger" onClick={async () => { const { error } = wd.own ? await supabase.rpc('withdraw_requirement', { p_id: wd.id }) : await supabase.rpc('withdraw_response', { p_req: wd.id }); if (error) return setWdErr(error.message); setWd(null); all() }}>Withdraw</button></>}>
-      {wd.own ? 'Other manufacturers will no longer see this request.' : 'The MoqLess team will no longer see your offer.'}<Err m={wdErr} /></Modal>}
-    {view && <Modal title={`Offers for ${view.req_no}`} sub="Shared by MoqLess. Supplier names stay private — we’ll connect you when you pick one." onClose={() => setView(null)}
+      {wd.own ? 'Other manufacturers will no longer see this request.' : 'The Smallotz team will no longer see your offer.'}<Err m={wdErr} /></Modal>}
+    {view && <Modal title={`Offers for ${view.req_no}`} sub="Shared by Smallotz. Supplier names stay private — we’ll connect you when you pick one." onClose={() => setView(null)}
       footer={<button className="btn btn-primary" onClick={() => setView(null)}>Close</button>}>
       {(shared.rows as Row[]).filter(x => x.requirement_id === view.id).map((x, i) => <div className="offer" key={x.id}>
         <div className="row" style={{ justifyContent: 'space-between' }}><b>Offer {i + 1}</b>{x.status === 'selected' && <Chip c="green">Selected</Chip>}</div>
@@ -130,7 +130,7 @@ function AdminReqDialog({ r, onClose, onChanged }: { r: Row; onClose: () => void
   const setResp = async (id: string, status: string | null, share: boolean | null) => { const { error } = await supabase.rpc('admin_set_response', { p_id: id, p_status: status, p_share: share }); if (error) setErr(error.message); else { setErr(''); resp.reload() } }
   const pending = r.status === 'pending_review'
   return (
-    <Modal title={`${r.req_no} · ${KIND[r.kind]}`} sub={r.source === 'admin' ? 'Posted by MoqLess' : `Posted by ${r.poster?.trade_name ?? r.poster?.legal_name ?? 'a supplier'} (hidden from other suppliers)`} onClose={onClose}
+    <Modal title={`${r.req_no} · ${KIND[r.kind]}`} sub={r.source === 'admin' ? 'Posted by Smallotz' : `Posted by ${r.poster?.trade_name ?? r.poster?.legal_name ?? 'a supplier'} (hidden from other suppliers)`} onClose={onClose}
       footer={<><button className="btn btn-outline" onClick={onClose}>Close</button>
         {ok && pending && <><button className="btn btn-danger" disabled={busy} onClick={() => act('reject')}>Reject</button><button className="btn btn-primary" disabled={busy} onClick={() => act('publish')}>Publish to suppliers</button></>}
         {ok && r.status === 'published' && <><button className="btn btn-outline" disabled={busy} onClick={() => act('close')}>Close</button><button className="btn btn-primary" disabled={busy} onClick={() => act('fulfil')}>Mark fulfilled</button></>}
@@ -172,7 +172,7 @@ export function AdminRequirements() {
     <Card flush>{q.loading ? <Loading /> : !rows.length ? <Empty icon="📌" title={tab === 'review' ? 'Nothing to review' : 'No requirements'} desc="Supplier requests land here for you to review and publish." /> :
       <div className="table-card"><table><thead><tr><th>Requirement</th><th>From</th><th>Status</th><th>Responses</th><th>Posted</th><th></th></tr></thead><tbody>
         {rows.map(r => <tr key={r.id}><td className="td-strong">{r.title}<div className="td-muted">{r.req_no} · {KIND[r.kind]}{qtyLine(r) ? ' · ' + qtyLine(r) : ''}</div></td>
-          <td>{r.source === 'admin' ? 'MoqLess' : r.poster?.trade_name ?? r.poster?.legal_name ?? '—'}</td><td><ReqStatus s={r.status} /></td>
+          <td>{r.source === 'admin' ? 'Smallotz' : r.poster?.trade_name ?? r.poster?.legal_name ?? '—'}</td><td><ReqStatus s={r.status} /></td>
           <td>{(r.requirement_responses ?? []).filter((x: Row) => x.status !== 'withdrawn').length || '—'}</td><td>{fdate(r.created_at)}</td>
           <td><button className="btn btn-outline btn-sm" onClick={() => setOpen(r)}>{r.status === 'pending_review' && can('suppliers') ? 'Review' : 'View'}</button></td></tr>)}</tbody></table></div>}</Card>
     {open && <AdminReqDialog r={open} onClose={() => setOpen(null)} onChanged={q.reload} />}

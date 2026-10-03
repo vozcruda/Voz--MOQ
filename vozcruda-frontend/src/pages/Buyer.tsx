@@ -86,6 +86,6 @@ export function Payments() {
       <div className="res-summary"><div className="res-summary-row"><span className="key">Amount</span><span>{inr(sel.amount_due_paise)}</span></div><div className="res-summary-row"><span className="key">Pay before</span><span>{fdate(sel.reserved_until)}</span></div></div>
       {(() => { const v = ((settings.rows as Row[])[0]?.value ?? {}) as Row; const L: [string, string][] = [['account_name', 'Account name'], ['bank_name', 'Bank'], ['account_number', 'Account number'], ['ifsc', 'IFSC'], ['upi_id', 'UPI ID']]
         const have = L.filter(([k]) => v[k]); return have.length ? have.map(([k, l]) => <div className="info-row" key={k}><span className="info-key">{l}</span><span className="info-val mono">{String(v[k])}</span></div>) : <div className="form-hint">Payment details are not set up yet — please contact support.</div> })()}
-      <p className="form-hint" style={{ marginTop: 12 }}>{String(((settings.rows as Row[])[0]?.value as Row | undefined)?.note || 'After transferring, quote your transaction ID to Voz Cruda support.')} Your reservation is marked paid once it is verified. Unpaid reservations expire automatically.</p></Modal>}
+      <p className="form-hint" style={{ marginTop: 12 }}>{String(((settings.rows as Row[])[0]?.value as Row | undefined)?.note || 'After transferring, quote your transaction ID to Smallotz support.')} Your reservation is marked paid once it is verified. Unpaid reservations expire automatically.</p></Modal>}
   </>)
 }

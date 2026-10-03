@@ -76,7 +76,7 @@ export function DisputeDetail({ id, admin, onClose, onChanged }: { id: string; a
         </div>
         <div className="thread">
           {(m.rows as Row[]).map(x => <div key={x.id} className={'msg msg-' + x.author_role + (x.internal ? ' msg-internal' : '')}>
-            <div className="msg-meta">{x.internal ? '🔒 Internal note' : x.author_role === 'buyer' ? 'Buyer' : 'Voz Cruda team'} · {dt(x.created_at)}</div>
+            <div className="msg-meta">{x.internal ? '🔒 Internal note' : x.author_role === 'buyer' ? 'Buyer' : 'Smallotz team'} · {dt(x.created_at)}</div>
             <div className="msg-body">{x.body}</div></div>)}
           {!m.loading && !m.rows.length && <div className="td-muted">No messages yet.</div>}
         </div>
