@@ -83,3 +83,6 @@ Smallotz brand assets live in `public/` (favicons, manifest, OG image) and `publ
 
 ## 015 — Remove batches and products
 `backend/015_remove_batches_products.sql` adds `admin_remove_pool` / `admin_restore_pool` and `remove_product` / `admin_restore_product`. Removing hides (soft delete); nothing is destroyed and an admin can restore from the "Removed" filter. Live batches are cancelled first (paid buyers go to refund pending). Batches with a purchase order cannot be removed. Suppliers can remove their own products when they have no live batch.
+
+## Install as an app (PWA)
+`public/site.webmanifest` + `public/sw.js` (no caching, network only) make the site installable: Android Chrome → ⋮ → Install app; iPhone Safari → Share → Add to Home Screen.

@@ -8,7 +8,7 @@ const when = (s: string) => new Date(s).toLocaleString('en-IN', { day: 'numeric'
 
 /** Admin: every online payment attempt and what PayU's server confirmed. */
 export function OnlinePayments() {
-  const q = useQuery(() => supabase.from('payment_attempts').select('*, commitment:commitment_id(qty, pool:pool_id(pool_no, title)), buyer:buyer_org_id(trade_name, legal_name)').order('created_at', { ascending: false }).limit(200), [])
+  const q = useQuery(() => supabase.from('payment_attempts').select('id, txnid, status, outcome, amount_paise, gateway_ref, mode, message, created_at, commitment:commitment_id(qty, pool:pool_id(pool_no, title)), buyer:buyer_org_id(trade_name, legal_name)').order('created_at', { ascending: false }).limit(200), [])
   const [tab, setTab] = useState('attention'); const all = q.rows as Row[]
   const tabs: [string, string, (r: Row) => boolean][] = [['attention', 'Needs attention', r => ['refund_needed', 'mismatch'].includes(r.status)], ['success', 'Paid', r => r.status === 'success'], ['issues', 'Failed / abandoned', r => ['failed', 'initiated', 'pending'].includes(r.status)], ['all', 'All', () => true]]
   const f = tabs.find(t => t[0] === tab)![2]; const rows = all.filter(f)
